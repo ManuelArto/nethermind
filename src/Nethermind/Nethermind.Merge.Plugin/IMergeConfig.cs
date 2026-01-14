@@ -72,4 +72,7 @@ public interface IMergeConfig : IConfig
 
     [ConfigItem(Description = "[TECHNICAL] Simulate block production for every possible slot. Just for stress-testing purposes.", DefaultValue = "false", HiddenFromDocs = true)]
     bool SimulateBlockProduction { get; set; }
+
+    [ConfigItem(Description = "Enable ZK Validation mode (Stateless Client).", DefaultValue = "false")]
+    bool ZkValidationEnabled { get; set; }
 }
