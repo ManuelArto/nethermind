@@ -332,7 +332,7 @@ public class BaseMergePluginModule : Module
                     {
                         return new ZkValidationStrategy(
                             ctx.Resolve<IBlockTree>(),
-                            ctx.Resolve<ILogManager>()
+                            ctx.Resolve<ILogManager>().GetClassLogger<ZkValidationStrategy>()
                         );
                     }
                     else

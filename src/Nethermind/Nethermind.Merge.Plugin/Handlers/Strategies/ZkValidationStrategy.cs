@@ -8,6 +8,7 @@ using Nethermind.Consensus.Processing;
 using Nethermind.Core;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Handlers;
+using Nethermind.Merge.Plugin.EthProofValidator;
 
 namespace Nethermind.Merge.Plugin.Handlers.Strategies
 {
@@ -15,18 +16,29 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
     {
         private readonly IBlockTree _blockTree;
         private readonly ILogger _logger;
+        private readonly BlockValidator _blockValidator;
 
-        public ZkValidationStrategy(IBlockTree blockTree, ILogManager logManager)
+        public ZkValidationStrategy(IBlockTree blockTree, ILogger logger)
         {
             _blockTree = blockTree;
-            _logger = logManager.GetClassLogger();
+            _logger = logger;
+            _blockValidator = new BlockValidator(_logger);
         }
 
         public async Task<(ValidationResult, string?)> ExecuteAsync(Block block, BlockHeader parent, ProcessingOptions options)
         {
-            if (_logger.IsInfo) _logger.Info($"ZK Validation triggered (MOCK) for block {block.Number} ({block.Hash})");
+            if (_logger.IsInfo) _logger.Info($"ZK Validation triggered for block {block.Number} ({block.Hash})...");
 
-            // 1. Add to Tree (if not already present)
+            bool isValid = await _blockValidator.ValidateBlockAsync(block.Number);
+
+            if (!isValid)
+            {
+                 if (_logger.IsWarn) _logger.Warn($"Block {block.Number} failed ZK validation.");
+                 return (ValidationResult.Invalid, "ZK Proof verification failed.");
+            }
+
+            if (_logger.IsInfo) _logger.Info($"Block {block.Number} validated via ZK proof. Skipping execution.");
+
             AddBlockResult addResult = await _blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.ForceDontSetAsMain);
 
             if (addResult == AddBlockResult.InvalidBlock)
@@ -34,15 +46,6 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
                 return (ValidationResult.Invalid, "Block rejected by BlockTree");
             }
 
-            // 2. Mark as Processed and Update Head
-            // In a real ZK scenario, we would verify the proof here.
-            // Since this is a mock, we assume validity and bypass EVM execution.
-            // We directly update the main chain to reflect that this block is now the head and is "processed".
-            
-            // Note: This bypasses the BlockchainProcessor entirely.
-            // Side effects: State is not actually written to DB (unless we have a Witness/Diff mechanism).
-            // But for a "Stateless" verifier, this is the intended behavior: accept the block based on proof.
-            
             _blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
 
             return (ValidationResult.Valid, null);
