@@ -11,6 +11,7 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Receipts;
 using Nethermind.Blockchain.Services;
 using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
@@ -22,7 +23,6 @@ using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Exceptions;
-using Nethermind.Core.Caching;
 using Nethermind.Db;
 using Nethermind.Facade.Proxy;
 using Nethermind.HealthChecks;
@@ -324,27 +324,32 @@ public class BaseMergePluginModule : Module
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV3Result?>, GetPayloadV3Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV4Result?>, GetPayloadV4Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV5Result?>, GetPayloadV5Handler>()
-                .AddSingleton<IPayloadExecutionStrategy>((ctx) =>
+                .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>>((ctx) =>
                 {
                     IMergeConfig config = ctx.Resolve<IMergeConfig>();
                     return config.ZkValidationEnabled
-                        ? new ZkValidationStrategy(
+                        ? new ZkNewPayloadHandler(
                             ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IPoSSwitcher>(),
                             ctx.Resolve<ILogManager>()
                         )
-                        : new LocalExecutionStrategy(
-                            ctx.Resolve<IBlockTree>(),
-                            ctx.Resolve<IBlockProcessingQueue>(),
+                        : new NewPayloadHandler(
+                            ctx.Resolve<IPayloadPreparationService>(),
                             ctx.Resolve<IBlockValidator>(),
-                            ctx.Resolve<ILogManager>(),
-                            TimeSpan.FromMilliseconds(config.NewPayloadBlockProcessingTimeout),
-                            config.NewPayloadCacheSize > 0
-                                ? new LruCache<Hash256AsKey, (bool valid, string? message)>(config.NewPayloadCacheSize, 0,
-                                    "LatestBlocks")
-                                : null
+                            ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IPoSSwitcher>(),
+                            ctx.Resolve<IBeaconSyncStrategy>(),
+                            ctx.Resolve<IBeaconPivot>(),
+                            ctx.Resolve<IBlockCacheService>(),
+                            ctx.Resolve<IBlockProcessingQueue>(),
+                            ctx.Resolve<IInvalidChainTracker>(),
+                            ctx.Resolve<IMergeSyncController>(),
+                            ctx.Resolve<IMergeConfig>(),
+                            ctx.Resolve<IReceiptConfig>(),
+                            ctx.Resolve<IStateReader>(),
+                            ctx.Resolve<ILogManager>()
                         );
                 })
-                .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>, NewPayloadHandler>()
                 .AddSingleton<IForkchoiceUpdatedHandler, ForkchoiceUpdatedHandler>()
                 .AddSingleton<IHandler<IReadOnlyList<Hash256>, IEnumerable<ExecutionPayloadBodyV1Result?>>, GetPayloadBodiesByHashV1Handler>()
                 .AddSingleton<IGetPayloadBodiesByRangeV1Handler, GetPayloadBodiesByRangeV1Handler>()

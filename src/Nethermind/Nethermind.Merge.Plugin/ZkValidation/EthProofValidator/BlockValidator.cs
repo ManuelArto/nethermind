@@ -25,9 +25,7 @@ public class BlockValidator
         _logger = logger;
     }
 
-    public async Task InitializeAsync() => await _registry.InitializeAsync();
-
-    public async Task<bool> ValidateBlockAsync(long blockId)
+    public async Task<ZkValidationResult> ValidateBlockAsync(long blockId)
     {
         if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId}");
 
@@ -35,7 +33,7 @@ public class BlockValidator
         if (proofs == null || proofs.Count == 0)
         {
             if (_logger.IsWarn) _logger.Warn("No proofs found.");
-            return false;
+            return ZkValidationResult.Unavailable;
         }
 
         IEnumerable<Task<ZkResult>> tasks = proofs.Select(async proof =>
@@ -62,7 +60,7 @@ public class BlockValidator
             if (_logger.IsWarn) _logger.Warn($"❌ BLOCK #{blockId} REJECTED ({validCount}/{totalCount})");
         }
 
-        return isValid;
+        return isValid ? ZkValidationResult.Valid : ZkValidationResult.Invalid;
     }
 
     private async Task<ZkResult> ProcessProofAsync(ProofMetadata proof, ZkProofVerifier? verifier)
@@ -111,4 +109,6 @@ public class BlockValidator
             if (_logger.IsWarn) _logger.Warn(message);
         }
     }
+
+    public enum ZkValidationResult { Valid, Invalid, Unavailable }
 }

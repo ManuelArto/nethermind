@@ -1,12 +1,12 @@
 using System.Threading.Tasks;
 using FluentAssertions;
 using Nethermind.Blockchain;
+using Nethermind.Consensus;
 using Nethermind.Core;
-using Nethermind.Core.Crypto;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
-using Nethermind.Consensus.Processing;
-using Nethermind.Merge.Plugin.Handlers;
+using Nethermind.JsonRpc;
+using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.ZkValidation;
 using NSubstitute;
 using NUnit.Framework;
@@ -14,16 +14,18 @@ using NUnit.Framework;
 namespace Nethermind.Merge.Plugin.Test;
 
 [TestFixture]
-public class ZkValidationStrategyTests
+public class ZkValidationTests
 {
-    private ZkValidationStrategy _strategy;
+    private ZkNewPayloadHandler _zkHandler;
     private IBlockTree _blockTree;
+    private IPoSSwitcher _poSSwitcher;
 
     [SetUp]
     public void SetUp()
     {
         _blockTree = Substitute.For<IBlockTree>();
-        _strategy = new ZkValidationStrategy(_blockTree, new TestLogManager(LogLevel.Info));
+        _poSSwitcher = Substitute.For<IPoSSwitcher>();
+        _zkHandler = new ZkNewPayloadHandler(_blockTree, _poSSwitcher, new TestLogManager(LogLevel.Info));
     }
 
     [Test]
@@ -31,21 +33,17 @@ public class ZkValidationStrategyTests
     {
         // Arrange
         const long blockNumber = 24234077;
-        const string blockHashStr = "0x52068ecfad6fa31a68a5fc75b35fcf40aabce54424f5ce2726c220f5ec762180";
-        var blockHash = new Hash256(blockHashStr);
-
         Block block = Build.A.Block
             .WithNumber(blockNumber)
             .TestObject;
-        block.Header.Hash = blockHash;
 
-        BlockHeader parent = Build.A.BlockHeader.TestObject;
+        var payload = ExecutionPayload.Create(block);
 
         // Act
-        (NewPayloadHandler.ValidationResult result, string? message) = await _strategy.ExecuteAsync(block, parent, ProcessingOptions.None);
+        ResultWrapper<PayloadStatusV1> result = await _zkHandler.HandleAsync(payload);
 
         // Assert
-        result.Should().Be(NewPayloadHandler.ValidationResult.Valid);
+        (result.Data.Status).Should().Be(PayloadStatus.Valid);
         await _blockTree.Received(1).SuggestBlockAsync(block, Arg.Any<BlockTreeSuggestOptions>());
     }
 }
