@@ -76,11 +76,11 @@ public partial class EngineRpcModule : IEngineRpcModule
         }
 
         IReleaseSpec releaseSpec = _specProvider.GetSpec(executionPayload.BlockNumber, executionPayload.Timestamp);
-        Data.ValidationResult validationResult = executionPayloadParams.ValidateParams(releaseSpec, version, out string? error);
-        if (validationResult != Data.ValidationResult.Success)
+        ValidationResult validationResult = executionPayloadParams.ValidateParams(releaseSpec, version, out string? error);
+        if (validationResult != ValidationResult.Success)
         {
             if (_logger.IsWarn) _logger.Warn(error);
-            return validationResult == Data.ValidationResult.Fail
+            return validationResult == ValidationResult.Fail
                 ? ResultWrapper<PayloadStatusV1>.Fail(error!, ErrorCodes.InvalidParams)
                 : ResultWrapper<PayloadStatusV1>.Success(PayloadStatusV1.Invalid(null, error));
         }
