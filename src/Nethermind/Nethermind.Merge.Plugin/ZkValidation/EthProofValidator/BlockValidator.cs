@@ -1,0 +1,114 @@
+// SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Nethermind.Logging;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
+
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator;
+
+public class BlockValidator
+{
+    private readonly EthProofsApiClient _apiClient;
+    private readonly VerifierRegistry _registry;
+    private readonly ILogger _logger;
+
+    public BlockValidator(ILogger logger)
+    {
+        _apiClient = new EthProofsApiClient();
+        _registry = new VerifierRegistry(_apiClient, logger);
+        _logger = logger;
+    }
+
+    public async Task<ZkValidationResult> ValidateBlockAsync(long blockId)
+    {
+        if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId}");
+
+        List<ProofMetadata>? proofs = await _apiClient.GetProofsForBlockAsync(blockId);
+        if (proofs == null || proofs.Count == 0)
+        {
+            if (_logger.IsWarn) _logger.Warn("No proofs found.");
+            return ZkValidationResult.Unavailable;
+        }
+
+        IEnumerable<Task<ZkResult>> tasks = proofs.Select(async proof =>
+        {
+            ZkProofVerifier? verifier = _registry.GetVerifier(proof.ClusterId) ?? await _registry.TryAddVerifierAsync(proof);
+            return await ProcessProofAsync(proof, verifier);
+        });
+        ZkResult[] results = await Task.WhenAll(tasks);
+
+        int validCount = 0, totalCount = 0;
+        foreach (ZkResult result in results)
+        {
+            if (result == ZkResult.Valid) validCount++;
+            if (result != ZkResult.Failed && result != ZkResult.Skipped) totalCount++;
+        }
+
+        bool isValid = validCount * 2 >= totalCount;
+        if (isValid)
+        {
+            if (_logger.IsInfo) _logger.Info($"✅ BLOCK #{blockId} ACCEPTED ({validCount}/{totalCount})");
+        }
+        else
+        {
+            if (_logger.IsWarn) _logger.Warn($"❌ BLOCK #{blockId} REJECTED ({validCount}/{totalCount})");
+        }
+
+        return isValid ? ZkValidationResult.Valid : ZkValidationResult.Invalid;
+    }
+
+    private async Task<ZkResult> ProcessProofAsync(ProofMetadata proof, ZkProofVerifier? verifier)
+    {
+        if (verifier is null)
+        {
+            var zkType = proof.Cluster.ZkvmVersion.ZkVm.Type;
+            this.DisplayProofResult(ZkResult.Skipped, proof.ProofId, zkType,
+                $"No verifier for cluster {proof.ClusterId}");
+            return ZkResult.Skipped;
+        }
+
+        var proofBytes = await _apiClient.DownloadProofAsync(proof.ProofId);
+        if (proofBytes is null)
+        {
+            this.DisplayProofResult(ZkResult.Skipped, proof.ProofId, $"{verifier.ZkType}", "Could not download proof");
+            return ZkResult.Skipped;
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        ZkResult result = verifier.Verify(proofBytes);
+        sw.Stop();
+
+        this.DisplayProofResult(result, proof.ProofId, $"{verifier.ZkType}", $"{sw.ElapsedMilliseconds} ms");
+        return result;
+    }
+
+    private void DisplayProofResult(ZkResult result, long proofId, string zkType, string info)
+    {
+        var status = result switch
+        {
+            ZkResult.Valid => "✅ Valid",
+            ZkResult.Invalid => "❌ Invalid",
+            ZkResult.Failed => "⛔ Error",
+            ZkResult.Skipped => "⚠️  Skipped",
+            _ => "❓ Unknown"
+        };
+
+        string message = $"   Proof {proofId} - {zkType,-15} : {status} ({info})";
+        if (result == ZkResult.Valid)
+        {
+            if (_logger.IsWarn) _logger.Warn(message);
+        }
+        else
+        {
+            if (_logger.IsWarn) _logger.Warn(message);
+        }
+    }
+
+    public enum ZkValidationResult { Valid, Invalid, Unavailable }
+}

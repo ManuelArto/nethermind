@@ -11,6 +11,7 @@ using Autofac.Core;
 using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Blockchain;
+using Nethermind.Blockchain.Receipts;
 using Nethermind.Blockchain.Services;
 using Nethermind.Blockchain.Synchronization;
 using Nethermind.Config;
@@ -35,6 +36,7 @@ using Nethermind.Merge.Plugin.GC;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
 using Nethermind.Merge.Plugin.Synchronization;
+using Nethermind.Merge.Plugin.ZkValidation;
 using Nethermind.Network.Contract.P2P;
 using Nethermind.Serialization.Json;
 using Nethermind.Specs.ChainSpecStyle;
@@ -322,7 +324,31 @@ public class BaseMergePluginModule : Module
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV3Result?>, GetPayloadV3Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV4Result?>, GetPayloadV4Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV5Result?>, GetPayloadV5Handler>()
-                .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>, NewPayloadHandler>()
+                .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>>((ctx) =>
+                {
+                    IMergeConfig config = ctx.Resolve<IMergeConfig>();
+                    return config.ZkValidationEnabled
+                        ? new ZkNewPayloadHandler(
+                            ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<ILogManager>()
+                        )
+                        : new NewPayloadHandler(
+                            ctx.Resolve<IPayloadPreparationService>(),
+                            ctx.Resolve<IBlockValidator>(),
+                            ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IPoSSwitcher>(),
+                            ctx.Resolve<IBeaconSyncStrategy>(),
+                            ctx.Resolve<IBeaconPivot>(),
+                            ctx.Resolve<IBlockCacheService>(),
+                            ctx.Resolve<IBlockProcessingQueue>(),
+                            ctx.Resolve<IInvalidChainTracker>(),
+                            ctx.Resolve<IMergeSyncController>(),
+                            ctx.Resolve<IMergeConfig>(),
+                            ctx.Resolve<IReceiptConfig>(),
+                            ctx.Resolve<IStateReader>(),
+                            ctx.Resolve<ILogManager>()
+                        );
+                })
                 .AddSingleton<IForkchoiceUpdatedHandler, ForkchoiceUpdatedHandler>()
                 .AddSingleton<IHandler<IReadOnlyList<Hash256>, IEnumerable<ExecutionPayloadBodyV1Result?>>, GetPayloadBodiesByHashV1Handler>()
                 .AddSingleton<IGetPayloadBodiesByRangeV1Handler, GetPayloadBodiesByRangeV1Handler>()

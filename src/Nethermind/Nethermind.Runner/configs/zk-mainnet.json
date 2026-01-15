@@ -1,0 +1,37 @@
+{
+    "$schema": "https://raw.githubusercontent.com/NethermindEth/core-scripts/refs/heads/main/schemas/config.json",
+    "Init": {
+        "ChainSpecPath": "chainspec/foundation.json",
+        "GenesisHash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
+        "BaseDbPath": "nethermind_db/zk-mainnet",
+        "LogFileName": "zk_mainnet.log",
+        "DiagnosticMode": "MemDb",
+        "MemoryHint": 1024000000
+    },
+    "JsonRpc": {
+        "Enabled": true,
+        "Timeout": 20000,
+        "Host": "127.0.0.1",
+        "Port": 8545,
+        "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Engine"],
+        "EnginePort": 8551
+    },
+    "Sync": {
+        "NetworkingEnabled": false,
+        "SynchronizationEnabled": false,
+        "NonValidatorNode": true
+    },
+    "Network": {
+        "ActivePeersMaxCount": 4
+    },
+    "Metrics": {
+        "NodeName": "ZkMainnet"
+    },
+    "Merge": {
+        "Enabled": true,
+        "ZkValidationEnabled": true
+    },
+    "HealthChecks": {
+      "Enabled": true
+    }
+}
