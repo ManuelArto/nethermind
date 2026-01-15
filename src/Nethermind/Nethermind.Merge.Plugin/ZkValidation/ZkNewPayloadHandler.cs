@@ -4,12 +4,15 @@
 using System;
 using System.Threading.Tasks;
 using Nethermind.Blockchain;
+using Nethermind.Consensus.Validators;
 using Nethermind.Core;
+using Nethermind.Core.Crypto;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator;
 using Nethermind.Merge.Plugin.Handlers;
+using Nethermind.Merge.Plugin.InvalidChainTracker;
+using BlockValidator = Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.BlockValidator;
 
 namespace Nethermind.Merge.Plugin.ZkValidation;
 
@@ -21,15 +24,16 @@ namespace Nethermind.Merge.Plugin.ZkValidation;
 public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
 {
     private readonly IBlockTree _blockTree;
+    private readonly IInvalidChainTracker _invalidChainTracker;
     private readonly ILogger _logger;
     private readonly BlockValidator _blockValidator;
 
-    public ZkNewPayloadHandler(IBlockTree blockTree, ILogManager logManager)
+    public ZkNewPayloadHandler(IBlockTree blockTree, IInvalidChainTracker invalidChainTracker, ILogManager logManager)
     {
         _blockTree = blockTree;
+        _invalidChainTracker = invalidChainTracker;
         _logger = logManager.GetClassLogger();
         _blockValidator = new BlockValidator(_logger);
-        if (_logger.IsInfo) _logger.Info($"ZK Validation strategy initialized.");
     }
 
     /// <summary>
@@ -45,13 +49,38 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
         if (block is null)
         {
             if (_logger.IsTrace) _logger.Trace($"New Block Request Invalid: {decodingResult.Error} ; {request}.");
-            return NewPayloadV1Result.Invalid(null,
-                $"Block {request} could not be parsed as a block: {decodingResult.Error}");
+            return NewPayloadV1Result.Invalid(null, $"Block {request} could not be parsed as a block: {decodingResult.Error}");
         }
 
-        if (_logger.IsInfo) _logger.Info($"ZK Validation triggered for block {block.Number} ({block.Hash})...");
+        if (_logger.IsInfo) _logger.Info($"[ZK] Received New Block:  {request}");
 
-        (ValidationResult result, string? message) = await ValidateAsync(block);
+        if (!HeaderValidator.ValidateHash(block!.Header, out Hash256 actualHash))
+        {
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
+            return NewPayloadV1Result.Invalid(null, $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
+        }
+
+        _invalidChainTracker.SetChildParent(block.Hash!, block.ParentHash!);
+        if (_invalidChainTracker.IsOnKnownInvalidChain(block.Hash!, out Hash256? lastValidHash))
+        {
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, $"block is a part of an invalid chain") + $". The last valid is {lastValidHash}");
+            return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is known to be a part of an invalid chain.");
+        }
+
+        BlockHeader? parentHeader = _blockTree.FindHeader(block.ParentHash!, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
+        bool isStateless = parentHeader is null;
+
+        if (isStateless)
+        {
+            if (_logger.IsInfo) _logger.Info($"[Stateless] Parent {block.ParentHash} not found. Proceeding with ZK validation (Chain update will be skipped).");
+        }
+
+        (ValidationResult result, string? message) = await ValidateAsync(block, isStateless);
+
+        if (result == ValidationResult.Invalid)
+        {
+            _invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
+        }
 
         return result switch
         {
@@ -61,7 +90,7 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
         };
     }
 
-    private async Task<(ValidationResult, string?)> ValidateAsync(Block block)
+    private async Task<(ValidationResult, string?)> ValidateAsync(Block block, bool isStateless)
     {
         BlockValidator.ZkValidationResult result = await _blockValidator.ValidateBlockAsync(block.Number);
 
@@ -82,7 +111,16 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
 
                 if (addResult == AddBlockResult.InvalidBlock) return (ValidationResult.Invalid, "Block rejected by BlockTree");
 
-                _blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
+                // CRITICAL: Only update main chain if we are not in stateless mode (i.e. we have the parent)
+                // Updating main chain with a disconnected block causes a crash in BlockTree.MoveToMain
+                if (!isStateless)
+                {
+                    _blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
+                }
+                else
+                {
+                    if (_logger.IsInfo) _logger.Info($"[Stateless] Block {block.Number} validated via ZK. Skipping chain update.");
+                }
 
                 return (ValidationResult.Valid, null);
             default:

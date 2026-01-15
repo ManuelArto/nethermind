@@ -330,6 +330,7 @@ public class BaseMergePluginModule : Module
                     return config.ZkValidationEnabled
                         ? new ZkNewPayloadHandler(
                             ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IInvalidChainTracker>(),
                             ctx.Resolve<ILogManager>()
                         )
                         : new NewPayloadHandler(
