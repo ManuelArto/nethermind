@@ -4,19 +4,20 @@
 using System;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using Nethermind.Merge.Plugin.EthProofValidator.Clients;
-using Nethermind.Merge.Plugin.EthProofValidator.Models;
+using System.Collections.Generic;
+using Nethermind.Logging;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Verifiers;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
 
-public class VerifierRegistry(EthProofsApiClient apiClient): IDisposable
+public class VerifierRegistry(EthProofsApiClient apiClient, ILogger logger): IDisposable
 {
-    private readonly EthProofsApiClient _apiClient = apiClient;
     private readonly ConcurrentDictionary<string, ZkProofVerifier> _verifiers = new();
 
     public async Task InitializeAsync()
     {
-        var clusters = await _apiClient.GetActiveKeysAsync();
+        List<ClusterVerifier>? clusters = await apiClient.GetActiveKeysAsync();
 
         if (clusters == null)
         {
@@ -24,7 +25,7 @@ public class VerifierRegistry(EthProofsApiClient apiClient): IDisposable
             return;
         }
 
-        foreach (var cluster in clusters)
+        foreach (ClusterVerifier cluster in clusters)
         {
             RegisterVerifier(cluster.Id, cluster.ZkType, cluster.VkBinary);
         }
@@ -40,7 +41,7 @@ public class VerifierRegistry(EthProofsApiClient apiClient): IDisposable
     public async Task<ZkProofVerifier?> TryAddVerifierAsync(ProofMetadata proof)
     {
         var type = proof.Cluster.ZkvmVersion.ZkVm.Type;
-        var vkBinary = await _apiClient.GetVerificationKeyBinaryAsync(proof.ProofId);
+        var vkBinary = await apiClient.GetVerificationKeyBinaryAsync(proof.ProofId);
 
         RegisterVerifier(proof.ClusterId, type, vkBinary);
         return GetVerifier(proof.ClusterId);
@@ -54,17 +55,17 @@ public class VerifierRegistry(EthProofsApiClient apiClient): IDisposable
         if (zkType == ZKType.Unknown) return;
 
         _verifiers.AddOrUpdate(clusterId,
-            _ => new ZkProofVerifier(zkType, vkBinary),
+            _ => new ZkProofVerifier(zkType, vkBinary, logger),
             (_, oldVerifier) =>
             {
-                oldVerifier.Dispose(); 
-                return new ZkProofVerifier(zkType, vkBinary);
+                oldVerifier.Dispose();
+                return new ZkProofVerifier(zkType, vkBinary, logger);
             });
     }
 
     public void Dispose()
     {
-        foreach (var verifier in _verifiers.Values)
+        foreach (ZkProofVerifier verifier in _verifiers.Values)
         {
             verifier.Dispose();
         }

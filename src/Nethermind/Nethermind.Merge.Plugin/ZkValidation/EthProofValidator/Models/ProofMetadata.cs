@@ -4,7 +4,7 @@
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Models;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
 public class ProofMetadata
 {

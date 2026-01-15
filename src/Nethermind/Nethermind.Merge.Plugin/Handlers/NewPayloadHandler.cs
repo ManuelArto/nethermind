@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,9 +11,7 @@ using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
-using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
 using Nethermind.Core.Threading;
 using Nethermind.Crypto;
 using Nethermind.Int256;
@@ -29,9 +26,6 @@ using Nethermind.Synchronization;
 
 namespace Nethermind.Merge.Plugin.Handlers;
 
-using Nethermind.Merge.Plugin.Handlers.Strategies;
-
-using ValidationCompletion = TaskCompletionSource<(ValidationResult? validationResult, string? validationMessage)>;
 
 /// <summary>
 /// Provides an execution payload handler as defined in Engine API
@@ -47,20 +41,16 @@ public sealed class NewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadS
     private readonly IBeaconSyncStrategy _beaconSyncStrategy;
     private readonly IBeaconPivot _beaconPivot;
     private readonly IBlockCacheService _blockCacheService;
-    private readonly IBlockProcessingQueue _processingQueue;
     private readonly IMergeSyncController _mergeSyncController;
     private readonly IInvalidChainTracker _invalidChainTracker;
     private readonly IStateReader _stateReader;
     private readonly ILogger _logger;
-    private readonly LruCache<Hash256AsKey, (bool valid, string? message)>? _latestBlocks;
     private readonly ProcessingOptions _defaultProcessingOptions;
-    private readonly TimeSpan _timeout;
     private readonly IPayloadExecutionStrategy _executionStrategy;
 
     private long _lastBlockNumber;
     private long _lastBlockGasLimit;
     private readonly bool _simulateBlockProduction;
-    private readonly bool _zkValidationEnabled;
 
     public NewPayloadHandler(
         IPayloadPreparationService payloadPreparationService,
@@ -70,7 +60,6 @@ public sealed class NewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadS
         IBeaconSyncStrategy beaconSyncStrategy,
         IBeaconPivot beaconPivot,
         IBlockCacheService blockCacheService,
-        IBlockProcessingQueue processingQueue,
         IInvalidChainTracker invalidChainTracker,
         IMergeSyncController mergeSyncController,
         IMergeConfig mergeConfig,
@@ -86,20 +75,13 @@ public sealed class NewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadS
         _beaconSyncStrategy = beaconSyncStrategy;
         _beaconPivot = beaconPivot;
         _blockCacheService = blockCacheService;
-        _processingQueue = processingQueue;
         _invalidChainTracker = invalidChainTracker;
         _mergeSyncController = mergeSyncController;
         _stateReader = stateReader;
         _logger = logManager.GetClassLogger();
         _defaultProcessingOptions = receiptConfig.StoreReceipts ? ProcessingOptions.EthereumMerge | ProcessingOptions.StoreReceipts : ProcessingOptions.EthereumMerge;
-        _timeout = TimeSpan.FromMilliseconds(mergeConfig.NewPayloadBlockProcessingTimeout);
-        if (mergeConfig.NewPayloadCacheSize > 0)
-            _latestBlocks = new(mergeConfig.NewPayloadCacheSize, 0, "LatestBlocks");
         _simulateBlockProduction = mergeConfig.SimulateBlockProduction;
-        if (mergeConfig.NewPayloadCacheSize > 0)
-            _latestBlocks = new(mergeConfig.NewPayloadCacheSize, 0, "LatestBlocks");
         _simulateBlockProduction = mergeConfig.SimulateBlockProduction;
-        _zkValidationEnabled = mergeConfig.ZkValidationEnabled;
         _executionStrategy = executionStrategy;
     }
 
@@ -137,7 +119,7 @@ public sealed class NewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadS
             _lastBlockGasLimit = block.Header.GasLimit;
         }
 
-        if (!_zkValidationEnabled && !HeaderValidator.ValidateHash(block!.Header, out Hash256 actualHash))
+        if (!HeaderValidator.ValidateHash(block!.Header, out Hash256 actualHash))
         {
             if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
             return NewPayloadV1Result.Invalid(null, $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
@@ -374,4 +356,11 @@ public sealed class NewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadS
     }
 
     public void Dispose() => _executionStrategy.Dispose();
+
+    public enum ValidationResult
+    {
+        Invalid,
+        Valid,
+        Syncing
+    }
 }

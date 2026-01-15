@@ -3,7 +3,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Models;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
 public class ClusterVerifier
 {

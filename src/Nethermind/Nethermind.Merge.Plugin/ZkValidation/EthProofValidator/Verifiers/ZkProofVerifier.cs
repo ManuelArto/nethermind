@@ -3,25 +3,28 @@
 
 using System;
 using System.Runtime.InteropServices;
-using Nethermind.Merge.Plugin.EthProofValidator.Models;
-using Nethermind.Merge.Plugin.EthProofValidator.Native;
+using Nethermind.Logging;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Native;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Verifiers;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
 
 public class ZkProofVerifier : IDisposable
 {
-    private readonly ZKType _zkType;
+    private readonly ILogger _logger;
+
     private IntPtr _vkPtr;
     private nuint _vkLen;
 
     private bool _disposed;
 
-    public ZKType ZkType => _zkType;
+    public ZKType ZkType { get; }
 
-    public ZkProofVerifier(ZKType zkType, string vkBinary)
+    public ZkProofVerifier(ZKType zkType, string vkBinary, ILogger logger)
     {
-        _zkType = zkType;
+        ZkType = zkType;
         AllocateVkMemory(vkBinary);
+        _logger = logger;
     }
 
     public ZkResult Verify(byte[] proof)
@@ -30,7 +33,7 @@ public class ZkProofVerifier : IDisposable
 
         try
         {
-            var result = NativeMethods.verify((int)_zkType, proof, (nuint)proof.Length, _vkPtr, _vkLen);
+            var result = NativeMethods.verify((int)ZkType, proof, (nuint)proof.Length, _vkPtr, _vkLen);
             return result switch
             {
                 1 => ZkResult.Valid,
@@ -38,8 +41,9 @@ public class ZkProofVerifier : IDisposable
                 _ => ZkResult.Failed
             };
         }
-        catch
+        catch (Exception e)
         {
+            _logger.Info(e.Message);
             return ZkResult.Failed;
         }
     }
@@ -72,11 +76,9 @@ public class ZkProofVerifier : IDisposable
 
     private void ReleaseVerificationKey()
     {
-        if (_vkPtr != IntPtr.Zero)
-        {
-            Marshal.FreeHGlobal(_vkPtr);
-            _vkPtr = IntPtr.Zero;
-        }
+        if (_vkPtr == IntPtr.Zero) return;
+        Marshal.FreeHGlobal(_vkPtr);
+        _vkPtr = IntPtr.Zero;
     }
 
     ~ZkProofVerifier() => ReleaseVerificationKey();

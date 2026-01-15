@@ -4,7 +4,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Models;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
     public enum ZKType
     {
         Zisk = 0,
@@ -28,6 +28,6 @@ namespace Nethermind.Merge.Plugin.EthProofValidator.Models;
 
         public static ZKType Parse(string name)
         {
-            return TypeMap.TryGetValue(name, out var type) ? type : ZKType.Unknown;
+            return TypeMap.GetValueOrDefault(name, ZKType.Unknown);
         }
     }

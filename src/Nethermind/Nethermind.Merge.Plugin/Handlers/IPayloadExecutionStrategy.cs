@@ -3,15 +3,13 @@
 
 using System;
 using System.Threading.Tasks;
-using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Core;
-using Nethermind.Merge.Plugin.Handlers;
 
-namespace Nethermind.Merge.Plugin.Handlers.Strategies
+namespace Nethermind.Merge.Plugin.Handlers
 {
     public interface IPayloadExecutionStrategy : IDisposable
     {
-        Task<(ValidationResult, string?)> ExecuteAsync(Block block, BlockHeader parent, ProcessingOptions options);
+        Task<(NewPayloadHandler.ValidationResult, string?)> ExecuteAsync(Block block, BlockHeader parent, ProcessingOptions options);
     }
 }

@@ -4,19 +4,19 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Native;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Native;
 
 internal static class NativeMethods
 {
-    const string LibName = "native_zk_verifier";
+    private const string LibName = "native_zk_verifier";
 
     // Standard P/Invoke: .NET automatically handles the translation of 'byte[]' to a pointer
     [DllImport(LibName, CallingConvention = CallingConvention.Cdecl)]
     public static extern int verify(
-        int zk_type,
-        [In] byte[] proof_ptr, // Pins automatically for the duration of call
-        nuint proof_len,
-        IntPtr vk_ptr,
-        nuint vk_len
+        int zkType,
+        [In] byte[] proofPtr, // Pins automatically for the duration of call
+        nuint proofLen,
+        IntPtr vkPtr,
+        nuint vkLen
     );
 }

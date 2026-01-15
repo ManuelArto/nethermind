@@ -7,9 +7,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net.Http.Json;
-using Nethermind.Merge.Plugin.EthProofValidator.Models;
+using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
-namespace Nethermind.Merge.Plugin.EthProofValidator.Clients;
+namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
 
 public class EthProofsApiClient
 {
@@ -56,7 +56,7 @@ public class EthProofsApiClient
     {
         try
         {
-            var results = await _httpClient.GetFromJsonAsync<ProofResponse>($"/api/blocks/{blockId}/proofs?page_size=20");
+            ProofResponse? results = await _httpClient.GetFromJsonAsync<ProofResponse>($"/api/blocks/{blockId}/proofs?page_size=20");
             return results?.Rows.Where(p => p.Status == "proved").ToList();
         }
         catch (HttpRequestException ex)

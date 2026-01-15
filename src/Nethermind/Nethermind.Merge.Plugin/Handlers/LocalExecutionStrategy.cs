@@ -6,21 +6,17 @@ using System.Collections.Concurrent;
 using System.Threading;
 using System.Threading.Tasks;
 using Nethermind.Blockchain;
-using Nethermind.Consensus;
 using Nethermind.Consensus.Processing;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Caching;
 using Nethermind.Core.Crypto;
-using Nethermind.Core.Extensions;
-using Nethermind.Core.Threading;
 using Nethermind.Crypto;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin.Handlers;
 
-namespace Nethermind.Merge.Plugin.Handlers.Strategies
+namespace Nethermind.Merge.Plugin.Handlers
 {
-    using ValidationCompletion = TaskCompletionSource<(ValidationResult? validationResult, string? validationMessage)>;
+    using ValidationCompletion = TaskCompletionSource<(NewPayloadHandler.ValidationResult? validationResult, string? validationMessage)>;
 
     public class LocalExecutionStrategy : IPayloadExecutionStrategy
     {
@@ -49,16 +45,18 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
             _processingQueue.BlockRemoved += GetProcessingQueueOnBlockRemoved;
         }
 
-        public async Task<(ValidationResult, string?)> ExecuteAsync(Block block, BlockHeader parent, ProcessingOptions processingOptions)
+        public async Task<(NewPayloadHandler.ValidationResult, string?)> ExecuteAsync(Block block, BlockHeader parent, ProcessingOptions processingOptions)
         {
-            ValidationResult TryCacheResult(ValidationResult result, string? errorMessage)
+            NewPayloadHandler.ValidationResult TryCacheResult(NewPayloadHandler.ValidationResult result, string? errorMessage)
             {
-                if (result == ValidationResult.Valid || result == ValidationResult.Invalid)
-                    _latestBlocks?.Set(block.GetOrCalculateHash(), (result == ValidationResult.Valid, errorMessage));
+                // notice that it is not correct to add information to the cache
+                // if we return SYNCING for example, and don't know yet whether
+                // the block is valid or invalid because we haven't processed it yet
+                if (result == NewPayloadHandler.ValidationResult.Valid || result == NewPayloadHandler.ValidationResult.Invalid) _latestBlocks?.Set(block.GetOrCalculateHash(), (result == NewPayloadHandler.ValidationResult.Valid, errorMessage));
                 return result;
             }
 
-            (ValidationResult? result, string? validationMessage) = (null, null);
+            (NewPayloadHandler.ValidationResult? result, string? validationMessage) = (null, null);
 
             // If duplicate, reuse results
             if (_latestBlocks is not null && _latestBlocks.TryGet(block.Hash!, out (bool valid, string? message) cachedResult))
@@ -68,13 +66,14 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
                 {
                     if (_logger.IsWarn) _logger.Warn("Invalid block found in latestBlock cache.");
                 }
-                return (isValid ? ValidationResult.Valid : ValidationResult.Invalid, message);
+
+                return (isValid ? NewPayloadHandler.ValidationResult.Valid : NewPayloadHandler.ValidationResult.Invalid, message);
             }
 
             // Validate
             if (!ValidateWithBlockValidator(block, parent, out validationMessage))
             {
-                return (TryCacheResult(ValidationResult.Invalid, validationMessage), validationMessage);
+                return (TryCacheResult(NewPayloadHandler.ValidationResult.Invalid, validationMessage), validationMessage);
             }
 
             ValidationCompletion blockProcessed =
@@ -93,8 +92,13 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
 
                 result = addResult switch
                 {
-                    AddBlockResult.InvalidBlock => ValidationResult.Invalid,
-                    AddBlockResult.AlreadyKnown => _blockTree.WasProcessed(block.Number, block.Hash!) ? ValidationResult.Valid : null,
+                    AddBlockResult.InvalidBlock => NewPayloadHandler.ValidationResult.Invalid,
+                    // if the block is marked as AlreadyKnown by the block tree then it means it has already
+                    // been suggested. there are three possibilities, either the block hasn't been processed yet,
+                    // the block was processed and returned invalid but this wasn't saved anywhere or the block was
+                    // processed and marked as valid.
+                    // if marked as processed by the block tree then return VALID, otherwise null so that it's processed a few lines below
+                    AddBlockResult.AlreadyKnown => _blockTree.WasProcessed(block.Number, block.Hash!) ? NewPayloadHandler.ValidationResult.Valid : null,
                     _ => null
                 };
 
@@ -107,31 +111,28 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
 
                 if (!result.HasValue)
                 {
+                    // we don't know the result of processing the block, either because
+                    // it is the first time we add it to the tree or it's AlreadyKnown in
+                    // the tree but hasn't yet been processed. if it's the second case
+                    // probably the block is already in the processing queue as a result
+                    // of a previous newPayload or the block being discovered during syncing
+                    // but add it to the processing queue just in case.
                     await _processingQueue.Enqueue(block, processingOptions);
                     (result, validationMessage) = await blockProcessed.Task.TimeoutOn(timeoutTask, cts);
                 }
                 else
                 {
+                    // Already known block with known processing result, cancel the timeout task
                     cts.Cancel();
                 }
             }
             catch (TimeoutException)
             {
+                // we timed out while processing the block, result will be null and we will return SYNCING below, no need to do anything
                 if (_logger.IsDebug) _logger.Debug($"Block {block.ToString(Block.Format.FullHashAndNumber)} timed out when processing. Assume Syncing.");
             }
 
-            return (TryCacheResult(result ?? ValidationResult.Syncing, validationMessage), validationMessage);
-        }
-
-        private bool ValidateWithBlockValidator(Block block, BlockHeader parent, out string? errorMessage)
-        {
-            if (!_blockValidator.ValidateSuggestedBlock(block, parent, out errorMessage))
-            {
-                if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, errorMessage));
-                return false;
-            }
-
-            return true;
+            return (TryCacheResult(result ?? NewPayloadHandler.ValidationResult.Syncing, validationMessage), validationMessage);
         }
 
         private void GetProcessingQueueOnBlockRemoved(object? o, BlockRemovedEventArgs e)
@@ -149,10 +150,10 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
                 return;
             }
 
-            ValidationResult? validationResult = e.ProcessingResult switch
+            NewPayloadHandler.ValidationResult? validationResult = e.ProcessingResult switch
             {
-                ProcessingResult.Success => ValidationResult.Valid,
-                ProcessingResult.ProcessingError => ValidationResult.Invalid,
+                ProcessingResult.Success => NewPayloadHandler.ValidationResult.Valid,
+                ProcessingResult.ProcessingError => NewPayloadHandler.ValidationResult.Invalid,
                 _ => null
             };
 
@@ -165,6 +166,15 @@ namespace Nethermind.Merge.Plugin.Handlers.Strategies
             };
 
             blockProcessed.TrySetResult((validationResult, validationMessage));
+        }
+
+        private bool ValidateWithBlockValidator(Block block, BlockHeader parent, out string? error)
+        {
+            block.Header.TotalDifficulty ??= parent.TotalDifficulty + block.Difficulty;
+            block.Header.IsPostMerge = true; // I think we don't need to set it again here.
+            bool isValid = _blockValidator.ValidateSuggestedBlock(block, parent, out error, validateHashes: false);
+            if (!isValid && _logger.IsWarn) _logger.Warn($"Block validator rejected the block {block.ToString(Block.Format.FullHashAndNumber)}.");
+            return isValid;
         }
 
         public void Dispose()
