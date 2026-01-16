@@ -50,7 +50,7 @@ public class ZkForkchoiceUpdatedHandler(
             return Task.FromResult(ForkchoiceUpdatedV1Result.Syncing);
         }
 
-        if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} is orphaned (cached). Returning Valid without chain update.");
+        if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} processed (cached). Returning Valid without chain update.");
 
         blockCacheService.HeadBlockHash = headBlockHash;
         blockCacheService.FinalizedHash = finalizedBlockHash;

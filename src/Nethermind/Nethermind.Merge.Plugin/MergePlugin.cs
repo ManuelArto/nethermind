@@ -326,12 +326,13 @@ public class BaseMergePluginModule : Module
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV3Result?>, GetPayloadV3Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV4Result?>, GetPayloadV4Handler>()
                 .AddSingleton<IAsyncHandler<byte[], GetPayloadV5Result?>, GetPayloadV5Handler>()
+                .AddSingleton<ZkValidationService>()
                 .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>>((ctx) =>
                 {
                     IMergeConfig config = ctx.Resolve<IMergeConfig>();
                     return config.ZkValidationEnabled
                         ? new ZkNewPayloadHandler(
-                            ctx.Resolve<IBlockCacheService>(),
+                            ctx.Resolve<ZkValidationService>(),
                             ctx.Resolve<IInvalidChainTracker>(),
                             ctx.Resolve<ILogManager>()
                         )
