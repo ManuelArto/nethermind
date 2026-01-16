@@ -89,7 +89,7 @@ public sealed class ZkNewPayloadHandler(
             case BlockValidator.ZkValidationResult.Unavailable:
             {
                 if (_logger.IsWarn) _logger.Warn($"Block {block.Number}, no proofs available.");
-                return (ValidationResult.Syncing, "Proofs not available.");
+                return (ValidationResult.Syncing, "Proofs not available (SYNCING)");
             }
             case BlockValidator.ZkValidationResult.Valid:
             {

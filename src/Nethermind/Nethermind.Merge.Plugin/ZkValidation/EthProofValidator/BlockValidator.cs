@@ -106,7 +106,7 @@ public class BlockValidator
         }
         else
         {
-            if (_logger.IsWarn) _logger.Warn(message);
+            if (_logger.IsDebug) _logger.Debug(message);
         }
     }
 
