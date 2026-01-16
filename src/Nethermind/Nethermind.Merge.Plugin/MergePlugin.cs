@@ -23,6 +23,7 @@ using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Exceptions;
+using Nethermind.Core.Specs;
 using Nethermind.Db;
 using Nethermind.Facade.Proxy;
 using Nethermind.HealthChecks;
@@ -43,6 +44,7 @@ using Nethermind.Specs.ChainSpecStyle;
 using Nethermind.State;
 using Nethermind.Synchronization;
 using Nethermind.Synchronization.ParallelSync;
+using Nethermind.Synchronization.Peers;
 using Nethermind.Trie.Pruning;
 using Nethermind.TxPool;
 
@@ -329,7 +331,7 @@ public class BaseMergePluginModule : Module
                     IMergeConfig config = ctx.Resolve<IMergeConfig>();
                     return config.ZkValidationEnabled
                         ? new ZkNewPayloadHandler(
-                            ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IBlockCacheService>(),
                             ctx.Resolve<IInvalidChainTracker>(),
                             ctx.Resolve<ILogManager>()
                         )
@@ -350,7 +352,32 @@ public class BaseMergePluginModule : Module
                             ctx.Resolve<ILogManager>()
                         );
                 })
-                .AddSingleton<IForkchoiceUpdatedHandler, ForkchoiceUpdatedHandler>()
+                .AddSingleton<IForkchoiceUpdatedHandler>((ctx) =>
+                {
+                    IMergeConfig config = ctx.Resolve<IMergeConfig>();
+                    return config.ZkValidationEnabled
+                        ? new ZkForkchoiceUpdatedHandler(
+                            ctx.Resolve<IBlockCacheService>(),
+                            ctx.Resolve<IInvalidChainTracker>(),
+                            ctx.Resolve<ILogManager>()
+                        )
+                        : new ForkchoiceUpdatedHandler(
+                            ctx.Resolve<IBlockTree>(),
+                            ctx.Resolve<IManualBlockFinalizationManager>(),
+                            ctx.Resolve<IPoSSwitcher>(),
+                            ctx.Resolve<IPayloadPreparationService>(),
+                            ctx.Resolve<IBlockProcessingQueue>(),
+                            ctx.Resolve<IBlockCacheService>(),
+                            ctx.Resolve<IInvalidChainTracker>(),
+                            ctx.Resolve<IMergeSyncController>(),
+                            ctx.Resolve<IBeaconPivot>(),
+                            ctx.Resolve<IPeerRefresher>(),
+                            ctx.Resolve<ISpecProvider>(),
+                            ctx.Resolve<ISyncPeerPool>(),
+                            ctx.Resolve<IMergeConfig>(),
+                            ctx.Resolve<ILogManager>()
+                        );
+                })
                 .AddSingleton<IHandler<IReadOnlyList<Hash256>, IEnumerable<ExecutionPayloadBodyV1Result?>>, GetPayloadBodiesByHashV1Handler>()
                 .AddSingleton<IGetPayloadBodiesByRangeV1Handler, GetPayloadBodiesByRangeV1Handler>()
                 .AddSingleton<IHandler<TransitionConfigurationV1, TransitionConfigurationV1>, ExchangeTransitionConfigurationV1Handler>()

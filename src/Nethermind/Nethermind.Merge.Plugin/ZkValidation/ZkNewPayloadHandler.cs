@@ -3,7 +3,6 @@
 
 using System;
 using System.Threading.Tasks;
-using Nethermind.Blockchain;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -17,12 +16,10 @@ using BlockValidator = Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Bl
 namespace Nethermind.Merge.Plugin.ZkValidation;
 
 /// <summary>
-/// Provides a (ZK Validation edit) payload handler as defined in Engine API.
-/// <a href="https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md#engine_newpayloadv2">
-/// Shanghai</a> specification.
+/// Simplified newPayload handler for ZK validation mode.
 /// </summary>
 public sealed class ZkNewPayloadHandler(
-    IBlockTree blockTree,
+    IBlockCacheService blockCacheService,
     IInvalidChainTracker invalidChainTracker,
     ILogManager logManager)
     : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
@@ -61,30 +58,24 @@ public sealed class ZkNewPayloadHandler(
             return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is known to be a part of an invalid chain.");
         }
 
-        BlockHeader? parentHeader = blockTree.FindHeader(block.ParentHash!, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
-        bool isStateless = parentHeader is null;
-
-        if (isStateless)
+        (ValidationResult result, string? message) = await ValidateAsync(block);
+        switch (result)
         {
-            if (_logger.IsInfo) _logger.Info($"[Stateless] Parent {block.ParentHash} not found. Proceeding with ZK validation (Chain update will be skipped).");
+            case ValidationResult.Invalid:
+            {
+                invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
+                return NewPayloadV1Result.Invalid(null, message);
+            }
+            case ValidationResult.Valid:
+                return NewPayloadV1Result.Valid(block.Hash);
+            case ValidationResult.Syncing:
+                return NewPayloadV1Result.Syncing;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
-
-        (ValidationResult result, string? message) = await ValidateAsync(block, isStateless);
-
-        if (result == ValidationResult.Invalid)
-        {
-            invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
-        }
-
-        return result switch
-        {
-            ValidationResult.Valid => NewPayloadV1Result.Valid(block.Hash),
-            ValidationResult.Invalid => NewPayloadV1Result.Invalid(null, message),
-            _ => NewPayloadV1Result.Syncing
-        };
     }
 
-    private async Task<(ValidationResult, string?)> ValidateAsync(Block block, bool isStateless)
+    private async Task<(ValidationResult, string?)> ValidateAsync(Block block)
     {
         BlockValidator.ZkValidationResult result = await _blockValidator.ValidateBlockAsync(block.Number);
 
@@ -101,22 +92,11 @@ public sealed class ZkNewPayloadHandler(
                 return (ValidationResult.Syncing, "Proofs not available.");
             }
             case BlockValidator.ZkValidationResult.Valid:
-                AddBlockResult addResult = await blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.ForceDontSetAsMain);
-
-                if (addResult == AddBlockResult.InvalidBlock) return (ValidationResult.Invalid, "Block rejected by BlockTree");
-
-                // CRITICAL: Only update main chain if we are not in stateless mode (i.e. we have the parent)
-                // Updating main chain with a disconnected block causes a crash in BlockTree.MoveToMain
-                if (!isStateless)
-                {
-                    blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
-                }
-                else
-                {
-                    if (_logger.IsInfo) _logger.Info($"[Stateless] Block {block.Number} validated via ZK. Skipping chain update.");
-                }
-
+            {
+                blockCacheService.BlockCache.TryAdd(block.Hash!, block);
+                if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} valid cached");
                 return (ValidationResult.Valid, null);
+            }
             default:
                 throw new ArgumentOutOfRangeException();
         }

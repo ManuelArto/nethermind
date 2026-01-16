@@ -37,7 +37,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException ex)
         {
-            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch active clusters: {ex.Message}");
+            if (_logger.IsDebug) _logger.Debug($"[API Error] Failed to fetch active clusters: {ex.Message}");
             return null;
         }
     }
@@ -51,7 +51,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException)
         {
-            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch verification key for proof {proofId}");
+            if (_logger.IsDebug) _logger.Debug($"[API Error] Failed to fetch verification key for proof {proofId}");
             return null;
         }
     }
@@ -65,7 +65,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException ex)
         {
-            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch proofs for block {blockId}: {ex.Message}");
+            if (_logger.IsDebug) _logger.Debug($"[API Error] Failed to fetch proofs for block {blockId}: {ex.Message}");
             return null;
         }
     }
@@ -78,7 +78,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException)
         {
-            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch proof {proofId}");
+            if (_logger.IsDebug) _logger.Debug($"[API Error] Failed to fetch proof {proofId}");
             return null;
         }
     }
