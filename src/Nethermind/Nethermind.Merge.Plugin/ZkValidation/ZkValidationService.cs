@@ -27,7 +27,7 @@ public class ZkValidationService(
     private readonly ConcurrentDictionary<Hash256, Block> _pendingBlocks = new();
 
     private const int RetryDelayMs = 4000;
-    private const int MaxRetries = 2;
+    private const int MaxRetries = 5;
 
     /// <summary>
     /// Check if a block has already been validated (cached) or is pending validation.
