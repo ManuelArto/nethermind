@@ -30,7 +30,7 @@ public class BlockValidator
         if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId}");
 
         List<ProofMetadata>? proofs = await _apiClient.GetProofsForBlockAsync(blockId);
-        if (proofs == null || proofs.Count == 0)
+        if (proofs == null || proofs.Count <= 1)
         {
             if (_logger.IsWarn) _logger.Warn("No proofs found.");
             return ZkValidationResult.Unavailable;
@@ -49,6 +49,8 @@ public class BlockValidator
             if (result == ZkResult.Valid) validCount++;
             if (result != ZkResult.Failed && result != ZkResult.Skipped) totalCount++;
         }
+
+        if (totalCount == 1) return ZkValidationResult.Unavailable;
 
         bool isValid = validCount * 2 >= totalCount;
         if (isValid)

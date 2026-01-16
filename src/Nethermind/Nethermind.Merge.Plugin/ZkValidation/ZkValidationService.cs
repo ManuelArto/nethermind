@@ -26,8 +26,8 @@ public class ZkValidationService(
     private readonly BlockValidator _blockValidator = new(logManager);
     private readonly ConcurrentDictionary<Hash256, Block> _pendingBlocks = new();
 
-    private const int RetryDelayMs = 2000;
-    private const int MaxRetries = 30;
+    private const int RetryDelayMs = 4000;
+    private const int MaxRetries = 2;
 
     /// <summary>
     /// Check if a block has already been validated (cached) or is pending validation.
@@ -62,8 +62,8 @@ public class ZkValidationService(
                 if (_logger.IsInfo)
                 {
                     _logger.Info(isRetry
-                        ? $"[ZK] Block {block.Number} ✅ validated after {retryCount} retries."
-                        : $"[ZK] Block {block.Number} ✅ validated and cached.");
+                        ? $"[ZK] Block {block.Number} validated after {retryCount} retries."
+                        : $"[ZK] Block {block.Number} validated and cached.");
                 }
 
                 return ZkBlockStatus.Valid;
@@ -74,8 +74,8 @@ public class ZkValidationService(
                 if (_logger.IsWarn)
                 {
                     _logger.Warn(isRetry
-                        ? $"[ZK] Block {block.Number} ❌ invalid after {retryCount} retries."
-                        : $"[ZK] Block {block.Number} ❌ failed ZK validation.");
+                        ? $"[ZK] Block {block.Number} invalid after {retryCount} retries."
+                        : $"[ZK] Block {block.Number} failed ZK validation.");
                 }
 
                 return ZkBlockStatus.Invalid;
@@ -83,7 +83,7 @@ public class ZkValidationService(
             case BlockValidator.ZkValidationResult.Unavailable:
                 if (isRetry || !_pendingBlocks.TryAdd(block.Hash!, block)) return ZkBlockStatus.Pending;
 
-                if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} proofs unavailable. Starting background retry...");
+                if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} proofs unavailable. Starting background validation...");
                 _ = RetryInBackgroundAsync(block);
                 return ZkBlockStatus.Pending;
 
@@ -108,6 +108,6 @@ public class ZkValidationService(
 
         // Timeout
         _pendingBlocks.TryRemove(block.Hash!, out _);
-        if (_logger.IsWarn) _logger.Warn($"[ZK] Block {block.Number} ⚠️ timed out after {MaxRetries} retries.");
+        if (_logger.IsWarn) _logger.Warn($"[ZK] Block {block.Number} timed out after {MaxRetries} retries.");
     }
 }
