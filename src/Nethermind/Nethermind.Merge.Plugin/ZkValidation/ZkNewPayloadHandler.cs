@@ -21,20 +21,14 @@ namespace Nethermind.Merge.Plugin.ZkValidation;
 /// <a href="https://github.com/ethereum/execution-apis/blob/main/src/engine/shanghai.md#engine_newpayloadv2">
 /// Shanghai</a> specification.
 /// </summary>
-public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
+public sealed class ZkNewPayloadHandler(
+    IBlockTree blockTree,
+    IInvalidChainTracker invalidChainTracker,
+    ILogManager logManager)
+    : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
 {
-    private readonly IBlockTree _blockTree;
-    private readonly IInvalidChainTracker _invalidChainTracker;
-    private readonly ILogger _logger;
-    private readonly BlockValidator _blockValidator;
-
-    public ZkNewPayloadHandler(IBlockTree blockTree, IInvalidChainTracker invalidChainTracker, ILogManager logManager)
-    {
-        _blockTree = blockTree;
-        _invalidChainTracker = invalidChainTracker;
-        _logger = logManager.GetClassLogger();
-        _blockValidator = new BlockValidator(_logger);
-    }
+    private readonly ILogger _logger = logManager.GetClassLogger();
+    private readonly BlockValidator _blockValidator = new(logManager);
 
     /// <summary>
     /// Validate via ZK the payload and returns the <see cref="PayloadStatusV1"/>
@@ -60,14 +54,14 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
             return NewPayloadV1Result.Invalid(null, $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
         }
 
-        _invalidChainTracker.SetChildParent(block.Hash!, block.ParentHash!);
-        if (_invalidChainTracker.IsOnKnownInvalidChain(block.Hash!, out Hash256? lastValidHash))
+        invalidChainTracker.SetChildParent(block.Hash!, block.ParentHash!);
+        if (invalidChainTracker.IsOnKnownInvalidChain(block.Hash!, out Hash256? lastValidHash))
         {
             if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, $"block is a part of an invalid chain") + $". The last valid is {lastValidHash}");
             return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is known to be a part of an invalid chain.");
         }
 
-        BlockHeader? parentHeader = _blockTree.FindHeader(block.ParentHash!, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
+        BlockHeader? parentHeader = blockTree.FindHeader(block.ParentHash!, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
         bool isStateless = parentHeader is null;
 
         if (isStateless)
@@ -79,7 +73,7 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
 
         if (result == ValidationResult.Invalid)
         {
-            _invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
+            invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
         }
 
         return result switch
@@ -107,7 +101,7 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
                 return (ValidationResult.Syncing, "Proofs not available.");
             }
             case BlockValidator.ZkValidationResult.Valid:
-                AddBlockResult addResult = await _blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.ForceDontSetAsMain);
+                AddBlockResult addResult = await blockTree.SuggestBlockAsync(block, BlockTreeSuggestOptions.ForceDontSetAsMain);
 
                 if (addResult == AddBlockResult.InvalidBlock) return (ValidationResult.Invalid, "Block rejected by BlockTree");
 
@@ -115,7 +109,7 @@ public sealed class ZkNewPayloadHandler : IAsyncHandler<ExecutionPayload, Payloa
                 // Updating main chain with a disconnected block causes a crash in BlockTree.MoveToMain
                 if (!isStateless)
                 {
-                    _blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
+                    blockTree.UpdateMainChain(new[] { block }, wereProcessed: true, forceHeadBlock: true);
                 }
                 else
                 {

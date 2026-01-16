@@ -7,16 +7,18 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net.Http.Json;
+using Nethermind.Logging;
 using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
 namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
 
 public class EthProofsApiClient
 {
+    private readonly ILogger _logger;
     private readonly HttpClient _httpClient;
     private const string BaseUrl = "https://ethproofs.org";
 
-    public EthProofsApiClient()
+    public EthProofsApiClient(ILogManager logManager)
     {
         var handler = new SocketsHttpHandler
         {
@@ -24,6 +26,7 @@ public class EthProofsApiClient
             MaxConnectionsPerServer = 20
         };
         _httpClient = new HttpClient(handler) { BaseAddress = new Uri(BaseUrl) };
+        _logger = logManager.GetClassLogger();
     }
 
     public async Task<List<ClusterVerifier>?> GetActiveKeysAsync()
@@ -34,7 +37,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"[API Error] Failed to fetch active clusters: {ex.Message}");
+            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch active clusters: {ex.Message}");
             return null;
         }
     }
@@ -48,6 +51,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException)
         {
+            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch verification key for proof {proofId}");
             return null;
         }
     }
@@ -61,7 +65,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"[API Error] Failed to fetch proofs for block {blockId}: {ex.Message}");
+            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch proofs for block {blockId}: {ex.Message}");
             return null;
         }
     }
@@ -74,6 +78,7 @@ public class EthProofsApiClient
         }
         catch (HttpRequestException)
         {
+            if (_logger.IsWarn) _logger.Warn($"[API Error] Failed to fetch proof {proofId}");
             return null;
         }
     }

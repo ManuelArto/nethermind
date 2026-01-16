@@ -11,7 +11,7 @@ using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 
 namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
 
-public class VerifierRegistry(EthProofsApiClient apiClient, ILogger logger): IDisposable
+public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManager): IDisposable
 {
     private readonly ConcurrentDictionary<string, ZkProofVerifier> _verifiers = new();
 
@@ -55,11 +55,11 @@ public class VerifierRegistry(EthProofsApiClient apiClient, ILogger logger): IDi
         if (zkType == ZKType.Unknown) return;
 
         _verifiers.AddOrUpdate(clusterId,
-            _ => new ZkProofVerifier(zkType, vkBinary, logger),
+            _ => new ZkProofVerifier(zkType, vkBinary, logManager),
             (_, oldVerifier) =>
             {
                 oldVerifier.Dispose();
-                return new ZkProofVerifier(zkType, vkBinary, logger);
+                return new ZkProofVerifier(zkType, vkBinary, logManager);
             });
     }
 

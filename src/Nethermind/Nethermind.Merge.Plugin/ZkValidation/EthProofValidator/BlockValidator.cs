@@ -18,11 +18,11 @@ public class BlockValidator
     private readonly VerifierRegistry _registry;
     private readonly ILogger _logger;
 
-    public BlockValidator(ILogger logger)
+    public BlockValidator(ILogManager logManager)
     {
-        _apiClient = new EthProofsApiClient();
-        _registry = new VerifierRegistry(_apiClient, logger);
-        _logger = logger;
+        _apiClient = new EthProofsApiClient(logManager);
+        _registry = new VerifierRegistry(_apiClient, logManager);
+        _logger = logManager.GetClassLogger();
     }
 
     public async Task<ZkValidationResult> ValidateBlockAsync(long blockId)

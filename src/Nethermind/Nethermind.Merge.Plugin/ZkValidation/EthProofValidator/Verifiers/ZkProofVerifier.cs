@@ -20,11 +20,11 @@ public class ZkProofVerifier : IDisposable
 
     public ZKType ZkType { get; }
 
-    public ZkProofVerifier(ZKType zkType, string vkBinary, ILogger logger)
+    public ZkProofVerifier(ZKType zkType, string vkBinary, ILogManager logManager)
     {
         ZkType = zkType;
         AllocateVkMemory(vkBinary);
-        _logger = logger;
+        _logger = logManager.GetClassLogger();
     }
 
     public ZkResult Verify(byte[] proof)
@@ -43,7 +43,7 @@ public class ZkProofVerifier : IDisposable
         }
         catch (Exception e)
         {
-            _logger.Info(e.Message);
+            if (_logger.IsInfo) _logger.Info(e.Message);
             return ZkResult.Failed;
         }
     }
