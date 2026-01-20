@@ -43,14 +43,14 @@ public class ZkForkchoiceUpdatedHandler(
             return Task.FromResult(ForkchoiceUpdatedV1Result.Invalid(lastValidHash));
         }
 
-        blockCacheService.BlockCache.TryGetValue(headBlockHash, out Block? block);
+        blockCacheService.BlockCache.TryRemove(headBlockHash, out Block? block);
         if (block is null)
         {
-            if (_logger.IsInfo) _logger.Info($"[ZK] Block {headBlockHash} not found in cache. Returning Syncing.");
+            if (_logger.IsInfo) _logger.Info($"[ZK] Block {headBlockHash} not found. Returning Syncing.");
             return Task.FromResult(ForkchoiceUpdatedV1Result.Syncing);
         }
 
-        if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} processed (cached). Returning Valid without chain update.");
+        if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} processed. Returning Valid without chain update.");
 
         blockCacheService.HeadBlockHash = headBlockHash;
         blockCacheService.FinalizedHash = finalizedBlockHash;

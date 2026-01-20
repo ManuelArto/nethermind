@@ -3,10 +3,13 @@
     "Init": {
         "ChainSpecPath": "chainspec/foundation.json",
         "GenesisHash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
-        "BaseDbPath": "nethermind_db/zk-mainnet",
         "LogFileName": "zk_mainnet.log",
+        "LogRules": "JsonRpc.Engine.*:Debug;Merge.*:Debug",
         "DiagnosticMode": "MemDb",
-        "MemoryHint": 1024000000
+        "MemoryHint": 1024000000,
+        "DiscoveryEnabled": false,
+        "PeerManagerEnabled": false,
+        "ProcessingEnabled": false
     },
     "JsonRpc": {
         "Enabled": true,
@@ -17,12 +20,19 @@
         "EnginePort": 8551
     },
     "Sync": {
+        "NonValidatorNode": true,
+        "DownloadReceiptsInFastSync": false,
+        "DownloadBodiesInFastSync": false,
         "NetworkingEnabled": false,
-        "SynchronizationEnabled": false,
-        "NonValidatorNode": true
+        "SynchronizationEnabled": false
     },
-    "Network": {
-        "ActivePeersMaxCount": 4
+    "TxPool": {
+      "Size": 0,
+      "BlobsSupport": "Disabled",
+      "PersistentBroadcastEnabled": false
+    },
+    "Pruning": {
+      "Mode": "None"
     },
     "Metrics": {
         "NodeName": "ZkMainnet"
