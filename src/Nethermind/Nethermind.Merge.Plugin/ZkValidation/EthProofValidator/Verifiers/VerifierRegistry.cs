@@ -15,23 +15,6 @@ public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManag
 {
     private readonly ConcurrentDictionary<string, ZkProofVerifier> _verifiers = new();
 
-    public async Task InitializeAsync()
-    {
-        List<ClusterVerifier>? clusters = await apiClient.GetActiveKeysAsync();
-
-        if (clusters == null)
-        {
-            Console.WriteLine("No keys found.");
-            return;
-        }
-
-        foreach (ClusterVerifier cluster in clusters)
-        {
-            RegisterVerifier(cluster.Id, cluster.ZkType, cluster.VkBinary);
-        }
-        Console.WriteLine($"✅ Loaded {_verifiers.Count} verifiers.");
-    }
-
     public ZkProofVerifier? GetVerifier(string clusterId)
     {
         _verifiers.TryGetValue(clusterId, out var verifier);
@@ -49,10 +32,10 @@ public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManag
 
     private void RegisterVerifier(string clusterId, string zkVm, string? vkBinary)
     {
-        if (string.IsNullOrEmpty(vkBinary)) return;
-
         ZKType zkType = ZkTypeMapper.Parse(zkVm);
         if (zkType == ZKType.Unknown) return;
+
+        if (string.IsNullOrEmpty(vkBinary) && !IsVerifiableWithoutVk(zkType)) return;
 
         _verifiers.AddOrUpdate(clusterId,
             _ => new ZkProofVerifier(zkType, vkBinary, logManager),
@@ -71,5 +54,10 @@ public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManag
         }
         _verifiers.Clear();
         System.GC.SuppressFinalize(this);
+    }
+
+    // This Verifier(s) handles vk internally
+    private static bool IsVerifiableWithoutVk(ZKType zkType) {
+        return zkType == ZKType.Airbender;
     }
 }

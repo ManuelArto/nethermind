@@ -11,6 +11,7 @@ namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
         OpenVM = 1,
         Pico = 2,
         Sp1Hypercube = 3,
+        Airbender = 4,
         Unknown = -1
     }
 
@@ -24,6 +25,7 @@ namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
             { "sp1", ZKType.Sp1Hypercube },
             { "sp1-hypercube", ZKType.Sp1Hypercube },
             { "sp1-turbo", ZKType.Sp1Hypercube },
+            { "airbender", ZKType.Airbender }
         };
 
         public static ZKType Parse(string name)

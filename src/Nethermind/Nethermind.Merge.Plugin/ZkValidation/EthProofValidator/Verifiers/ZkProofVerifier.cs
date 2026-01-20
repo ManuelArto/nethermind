@@ -20,10 +20,10 @@ public class ZkProofVerifier : IDisposable
 
     public ZKType ZkType { get; }
 
-    public ZkProofVerifier(ZKType zkType, string vkBinary, ILogManager logManager)
+    public ZkProofVerifier(ZKType zkType, string? vkBinary, ILogManager logManager)
     {
         ZkType = zkType;
-        AllocateVkMemory(vkBinary);
+        if (!string.IsNullOrEmpty(vkBinary)) AllocateVkMemory(vkBinary);
         _logger = logManager.GetClassLogger();
     }
 

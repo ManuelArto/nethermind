@@ -29,19 +29,6 @@ public class EthProofsApiClient
         _logger = logManager.GetClassLogger();
     }
 
-    public async Task<List<ClusterVerifier>?> GetActiveKeysAsync()
-    {
-        try
-        {
-            return await _httpClient.GetFromJsonAsync<List<ClusterVerifier>>("/api/v0/verification-keys/active");
-        }
-        catch (HttpRequestException ex)
-        {
-            if (_logger.IsDebug) _logger.Debug($"[API Error] Failed to fetch active clusters: {ex.Message}");
-            return null;
-        }
-    }
-
     public async Task<string?> GetVerificationKeyBinaryAsync(long proofId)
     {
         try
