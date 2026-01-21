@@ -4,15 +4,15 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Nethermind.Core;
+using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
 using BlockValidator = Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.BlockValidator;
 
 namespace Nethermind.Merge.Plugin.ZkValidation;
-
-public enum ZkBlockStatus { Valid, Invalid, Pending }
 
 /// <summary>
 /// Service that handles ZK proof validation with background retry support.
@@ -24,72 +24,69 @@ public class ZkValidationService(
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
     private readonly BlockValidator _blockValidator = new(logManager);
+    // TODO: refactor with blockcCacheService
     private readonly ConcurrentDictionary<Hash256, Block> _pendingBlocks = new();
 
     private const int RetryDelayMs = 4000;
     private const int MaxRetries = 5;
 
     /// <summary>
-    /// Check if a block has already been validated (cached) or is pending validation.
-    /// </summary>
-    public ZkBlockStatus? GetBlockStatus(Hash256 blockHash)
-    {
-        if (blockCacheService.BlockCache.ContainsKey(blockHash))
-            return ZkBlockStatus.Valid;
-        if (_pendingBlocks.ContainsKey(blockHash))
-            return ZkBlockStatus.Pending;
-
-        return null;
-    }
-
-    /// <summary>
     /// Validate a block via ZK proof. Returns immediately.
     /// If proofs are unavailable, starts background retry and returns Pending.
     /// </summary>
-    public async Task<ZkBlockStatus> ValidateAsync(Block block)
+    public async Task<string> ValidateAsync(Block block)
     {
-        BlockValidator.ZkValidationResult result = await _blockValidator.ValidateBlockAsync(block.Number);
-        return HandleResult(block, result, isRetry: false);
+        if (blockCacheService.BlockCache.ContainsKey(block.Hash!))
+        {
+            if (_logger.IsInfo) _logger.Info($"Block {block.Number} already validated.");
+            return PayloadStatus.Valid;
+        }
+
+        if (_pendingBlocks.ContainsKey(block.Hash!))
+            return PayloadStatus.Syncing;
+
+        string result = await _blockValidator.ValidateBlockAsync(block.Number);
+        HandleResult(block, result);
+        return result;
     }
 
-    private ZkBlockStatus HandleResult(Block block, BlockValidator.ZkValidationResult result, bool isRetry, int retryCount = 0)
+    public bool IsOnInvalidChain(Block block, out Hash256? lastValidHash)
     {
-        switch (result)
+        invalidChainTracker.SetChildParent(block.Hash!, block.ParentHash!);
+        if (!invalidChainTracker.IsOnKnownInvalidChain(block.Hash!, out lastValidHash)) return false;
+        if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "block is on an invalid chain"));
+        return true;
+    }
+
+    private void HandleResult(Block block, string result, int retry = 0)
+    {
+        if (result == PayloadStatus.Valid)
         {
-            case BlockValidator.ZkValidationResult.Valid:
-                blockCacheService.BlockCache.TryAdd(block.Hash!, block);
-                _pendingBlocks.TryRemove(block.Hash!, out _);
-                if (_logger.IsInfo)
-                {
-                    _logger.Info(isRetry
-                        ? $"[ZK] Block {block.Number} validated after {retryCount} retries."
-                        : $"[ZK] Block {block.Number} validated and cached.");
-                }
-
-                return ZkBlockStatus.Valid;
-
-            case BlockValidator.ZkValidationResult.Invalid:
-                invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
-                _pendingBlocks.TryRemove(block.Hash!, out _);
-                if (_logger.IsWarn)
-                {
-                    _logger.Warn(isRetry
-                        ? $"[ZK] Block {block.Number} invalid after {retryCount} retries."
-                        : $"[ZK] Block {block.Number} failed ZK validation.");
-                }
-
-                return ZkBlockStatus.Invalid;
-
-            case BlockValidator.ZkValidationResult.Unavailable:
-                if (isRetry || !_pendingBlocks.TryAdd(block.Hash!, block)) return ZkBlockStatus.Pending;
-
-                if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} proofs unavailable. Starting background validation...");
-                _ = RetryInBackgroundAsync(block);
-                return ZkBlockStatus.Pending;
-
-            default:
-                return ZkBlockStatus.Invalid;
+            blockCacheService.BlockCache.TryAdd(block.Hash!, block);
+            _pendingBlocks.TryRemove(block.Hash!, out _);
+            if (_logger.IsInfo)
+            {
+                _logger.Info($"Block {block.Number} validated and cached (retry: {retry})");
+            }
+            return;
         }
+
+        if (result == PayloadStatus.Invalid)
+        {
+            invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
+            _pendingBlocks.TryRemove(block.Hash!, out _);
+            if (_logger.IsWarn)
+            {
+                _logger.Warn($"Block {block.Number} failed ZK validation (retry: {retry})");
+            }
+            return;
+        }
+
+        // Syncing
+        if (!_pendingBlocks.TryAdd(block.Hash!, block)) return;
+        if (_logger.IsInfo)
+            _logger.Info($"Block {block.Number} proofs unavailable. Start validation in background...");
+        _ = RetryInBackgroundAsync(block);
     }
 
     private async Task RetryInBackgroundAsync(Block block)
@@ -97,17 +94,16 @@ public class ZkValidationService(
         for (int retry = 1; retry <= MaxRetries; retry++)
         {
             await Task.Delay(RetryDelayMs);
-            if (_logger.IsDebug) _logger.Debug($"[ZK] Retry {retry}/{MaxRetries} for block {block.Number}...");
+            if (_logger.IsDebug) _logger.Debug($"Retry {retry}/{MaxRetries} for block {block.Number}...");
 
-            BlockValidator.ZkValidationResult result = await _blockValidator.ValidateBlockAsync(block.Number);
-            ZkBlockStatus status = HandleResult(block, result, isRetry: true, retryCount: retry);
+            string result = await _blockValidator.ValidateBlockAsync(block.Number);
+            HandleResult(block, result);
 
-            if (status != ZkBlockStatus.Pending)
-                return;
+            if (result != PayloadStatus.Syncing) return;
         }
 
         // Timeout
         _pendingBlocks.TryRemove(block.Hash!, out _);
-        if (_logger.IsWarn) _logger.Warn($"[ZK] Block {block.Number} timed out after {MaxRetries} retries.");
+        if (_logger.IsWarn) _logger.Warn($"Block {block.Number} timed out after {MaxRetries} retries.");
     }
 }

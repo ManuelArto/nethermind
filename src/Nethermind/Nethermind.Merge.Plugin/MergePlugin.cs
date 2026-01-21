@@ -331,11 +331,7 @@ public class BaseMergePluginModule : Module
                 {
                     IMergeConfig config = ctx.Resolve<IMergeConfig>();
                     return config.ZkValidationEnabled
-                        ? new ZkNewPayloadHandler(
-                            ctx.Resolve<ZkValidationService>(),
-                            ctx.Resolve<IInvalidChainTracker>(),
-                            ctx.Resolve<ILogManager>()
-                        )
+                        ? new ZkNewPayloadHandler( ctx.Resolve<ZkValidationService>(), ctx.Resolve<ILogManager>())
                         : new NewPayloadHandler(
                             ctx.Resolve<IPayloadPreparationService>(),
                             ctx.Resolve<IBlockValidator>(),

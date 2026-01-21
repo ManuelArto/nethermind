@@ -34,26 +34,24 @@ public class ZkForkchoiceUpdatedHandler(
         Hash256 safeBlockHash = forkchoiceState.SafeBlockHash;
         Hash256 finalizedBlockHash = forkchoiceState.FinalizedBlockHash;
 
-        if (_logger.IsInfo) _logger.Info($"[ZK] Received ForkChoice: {headBlockHash}, Safe: {safeBlockHash}, Finalized: {finalizedBlockHash}");
-
-        // Check if head is on a known invalid chain
         if (invalidChainTracker.IsOnKnownInvalidChain(headBlockHash, out Hash256? lastValidHash))
         {
-            if (_logger.IsWarn) _logger.Warn($"[ZK] Head {headBlockHash} is on an invalid chain. Last valid: {lastValidHash}");
-            return Task.FromResult(ForkchoiceUpdatedV1Result.Invalid(lastValidHash));
+            if (_logger.IsWarn) _logger.Warn($"Received Invalid {forkchoiceState} {payloadAttributes} - {headBlockHash} is known to be a part of an invalid chain.");
+            return ForkchoiceUpdatedV1Result.Invalid(lastValidHash);
         }
+
+        string requestStr = forkchoiceState.ToString();
+        if (_logger.IsInfo) _logger.Info($"Received {requestStr}");
 
         blockCacheService.BlockCache.TryRemove(headBlockHash, out Block? block);
         if (block is null)
         {
-            if (_logger.IsInfo) _logger.Info($"[ZK] Block {headBlockHash} not found. Returning Syncing.");
-            return Task.FromResult(ForkchoiceUpdatedV1Result.Syncing);
+            if (_logger.IsInfo) _logger.Info($"Syncing Unknown ForkChoiceState head hash Request: {requestStr}.");
+            return ForkchoiceUpdatedV1Result.Syncing;
         }
 
-        if (_logger.IsInfo) _logger.Info($"[ZK] Block {block.Number} processed. Returning Valid without chain update.");
-
-        blockCacheService.HeadBlockHash = headBlockHash;
-        blockCacheService.FinalizedHash = finalizedBlockHash;
-        return Task.FromResult(ForkchoiceUpdatedV1Result.Valid(null, headBlockHash));
+        
+        if (_logger.IsInfo) _logger.Info($"Valid. {block}");
+        return ForkchoiceUpdatedV1Result.Valid(null, headBlockHash);
     }
 }

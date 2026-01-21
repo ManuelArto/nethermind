@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Nethermind.Logging;
+using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
 using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
 using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
@@ -25,7 +26,7 @@ public class BlockValidator
         _logger = logManager.GetClassLogger();
     }
 
-    public async Task<ZkValidationResult> ValidateBlockAsync(long blockId)
+    public async Task<string> ValidateBlockAsync(long blockId)
     {
         if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId}");
 
@@ -33,7 +34,7 @@ public class BlockValidator
         if (proofs == null || proofs.Count <= 1)
         {
             if (_logger.IsWarn) _logger.Warn("No proofs found.");
-            return ZkValidationResult.Unavailable;
+            return PayloadStatus.Syncing;
         }
 
         IEnumerable<Task<ZkResult>> tasks = proofs.Select(async proof =>
@@ -50,7 +51,7 @@ public class BlockValidator
             if (result != ZkResult.Failed && result != ZkResult.Skipped) totalCount++;
         }
 
-        if (totalCount == 1) return ZkValidationResult.Unavailable;
+        if (totalCount == 1) return PayloadStatus.Syncing;
 
         bool isValid = validCount * 2 >= totalCount;
         if (isValid)
@@ -62,7 +63,7 @@ public class BlockValidator
             if (_logger.IsWarn) _logger.Warn($"❌ BLOCK #{blockId} REJECTED ({validCount}/{totalCount})");
         }
 
-        return isValid ? ZkValidationResult.Valid : ZkValidationResult.Invalid;
+        return isValid ? PayloadStatus.Valid : PayloadStatus.Invalid;
     }
 
     private async Task<ZkResult> ProcessProofAsync(ProofMetadata proof, ZkProofVerifier? verifier)
@@ -102,15 +103,7 @@ public class BlockValidator
         };
 
         string message = $"   Proof {proofId} - {zkType,-15} : {status} ({info})";
-        if (result == ZkResult.Valid)
-        {
-            if (_logger.IsWarn) _logger.Warn(message);
-        }
-        else
-        {
-            if (_logger.IsDebug) _logger.Debug(message);
-        }
+        if (_logger.IsWarn) _logger.Warn(message);
     }
 
-    public enum ZkValidationResult { Valid, Invalid, Unavailable }
 }
