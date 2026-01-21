@@ -4,12 +4,10 @@
         "ChainSpecPath": "chainspec/foundation.json",
         "GenesisHash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
         "LogFileName": "zk_mainnet.log",
-        "LogRules": "JsonRpc.Engine.*:Debug;Merge.*:Debug",
         "DiagnosticMode": "MemDb",
         "MemoryHint": 1024000000,
         "DiscoveryEnabled": false,
-        "PeerManagerEnabled": false,
-        "ProcessingEnabled": false
+        "PeerManagerEnabled": false
     },
     "JsonRpc": {
         "Enabled": true,
@@ -20,19 +18,14 @@
         "EnginePort": 8551
     },
     "Sync": {
+        "SynchronizationEnabled": false,
         "NonValidatorNode": true,
         "DownloadReceiptsInFastSync": false,
-        "DownloadBodiesInFastSync": false,
-        "NetworkingEnabled": false,
-        "SynchronizationEnabled": false
+        "DownloadBodiesInFastSync": false
     },
     "TxPool": {
       "Size": 0,
-      "BlobsSupport": "Disabled",
-      "PersistentBroadcastEnabled": false
-    },
-    "Pruning": {
-      "Mode": "None"
+      "BlobsSupport": "Disabled"
     },
     "Metrics": {
         "NodeName": "ZkMainnet"
