@@ -8,9 +8,9 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Net.Http.Json;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Models;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator.Clients;
 
 public class EthProofsApiClient
 {

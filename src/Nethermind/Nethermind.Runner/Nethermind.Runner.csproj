@@ -120,4 +120,14 @@
     <Copy SourceFiles="@(PluginsForPublish)" DestinationFolder="$(PublishDir)\plugins" />
   </Target>
 
+  <Target Name="BuildRustDependency" BeforeTargets="Build">
+    <Exec Command="cargo build --release" WorkingDirectory="../Nethermind.ZkValidation.Plugin/EthProofValidator/native-zk-verifier" />
+    <ItemGroup>
+      <NativeLibs Include="../Nethermind.ZkValidation.Plugin/EthProofValidator/native-zk-verifier/target/release/libnative_zk_verifier.so" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+      <NativeLibs Include="../Nethermind.ZkValidation.Plugin/EthProofValidator/native-zk-verifier/target/release/native_zk_verifier.dll" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+      <NativeLibs Include="../Nethermind.ZkValidation.Plugin/EthProofValidator/native-zk-verifier/target/release/libnative_zk_verifier.dylib" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    </ItemGroup>
+    <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)\plugins" />
+  </Target>
+
 </Project>

@@ -4,7 +4,7 @@
 using System;
 using System.Runtime.InteropServices;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Native;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator.Native;
 
 internal static partial class NativeMethods
 {

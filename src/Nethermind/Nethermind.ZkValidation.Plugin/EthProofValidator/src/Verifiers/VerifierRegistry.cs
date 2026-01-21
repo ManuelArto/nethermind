@@ -4,14 +4,13 @@
 using System;
 using System.Threading.Tasks;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Clients;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Models;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator.Verifiers;
 
-public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManager): IDisposable
+public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManager) : IDisposable
 {
     private readonly ConcurrentDictionary<string, ZkProofVerifier> _verifiers = new();
 
@@ -57,7 +56,8 @@ public class VerifierRegistry(EthProofsApiClient apiClient, ILogManager logManag
     }
 
     // This Verifier(s) handles vk internally
-    private static bool IsVerifiableWithoutVk(ZKType zkType) {
+    private static bool IsVerifiableWithoutVk(ZKType zkType)
+    {
         return zkType == ZKType.Airbender;
     }
 }

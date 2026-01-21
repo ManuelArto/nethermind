@@ -4,15 +4,14 @@
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using Nethermind.Core;
-using Nethermind.Core.Attributes;
 using Nethermind.Core.Crypto;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
-using BlockValidator = Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.BlockValidator;
+using Nethermind.ZkValidation.Plugin.EthProofValidator;
 
-namespace Nethermind.Merge.Plugin.ZkValidation;
+namespace Nethermind.ZkValidation.Plugin.Handlers;
 
 /// <summary>
 /// Service that handles ZK proof validation with background retry support.

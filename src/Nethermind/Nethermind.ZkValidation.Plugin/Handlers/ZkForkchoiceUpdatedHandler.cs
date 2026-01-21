@@ -11,7 +11,7 @@ using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
 
-namespace Nethermind.Merge.Plugin.ZkValidation;
+namespace Nethermind.ZkValidation.Plugin.Handlers;
 
 /// <summary>
 /// Simplified forkchoice update handler for ZK validation mode.
@@ -50,7 +50,7 @@ public class ZkForkchoiceUpdatedHandler(
             return ForkchoiceUpdatedV1Result.Syncing;
         }
 
-        
+
         if (_logger.IsInfo) _logger.Info($"Valid. {block}");
         return ForkchoiceUpdatedV1Result.Valid(null, headBlockHash);
     }

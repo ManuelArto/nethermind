@@ -24,17 +24,19 @@
         "DownloadBodiesInFastSync": false
     },
     "TxPool": {
-      "Size": 0,
-      "BlobsSupport": "Disabled"
+        "Size": 0,
+        "BlobsSupport": "Disabled"
     },
     "Metrics": {
         "NodeName": "ZkMainnet"
     },
     "Merge": {
-        "Enabled": true,
-        "ZkValidationEnabled": true
+        "Enabled": true
+    },
+    "ZkValidation": {
+        "Enabled": true
     },
     "HealthChecks": {
-      "Enabled": true
+        "Enabled": true
     }
 }

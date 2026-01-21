@@ -4,10 +4,10 @@
 using System;
 using System.Runtime.InteropServices;
 using Nethermind.Logging;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Native;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Models;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Native;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator.Verifiers;
 
 public class ZkProofVerifier : IDisposable
 {
@@ -83,4 +83,3 @@ public class ZkProofVerifier : IDisposable
 
     ~ZkProofVerifier() => ReleaseVerificationKey();
 }
-

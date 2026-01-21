@@ -36,7 +36,5 @@ namespace Nethermind.Merge.Plugin
 
         public bool SimulateBlockProduction { get; set; } = false;
         public int? PostBlockGcDelayMs { get; set; } = null;
-
-        public bool ZkValidationEnabled { get; set; } = false;
     }
 }

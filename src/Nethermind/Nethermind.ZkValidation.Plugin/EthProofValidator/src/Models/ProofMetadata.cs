@@ -4,7 +4,7 @@
 using System.Text.Json.Serialization;
 using System.Collections.Generic;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator.Models;
 
 public class ProofMetadata
 {
@@ -39,7 +39,8 @@ public class Cluster
     public ZkvmVersion ZkvmVersion { get; set; } = new();
 }
 
-public class ZkvmVersion {
+public class ZkvmVersion
+{
     [JsonPropertyName("zkvm")]
     public ZkVm ZkVm { get; set; } = new();
 }
@@ -49,5 +50,3 @@ public class ZkVm
     [JsonPropertyName("slug")]
     public string Type { get; set; } = string.Empty;
 }
-
-

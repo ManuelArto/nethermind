@@ -12,7 +12,7 @@ using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
 
-namespace Nethermind.Merge.Plugin.ZkValidation;
+namespace Nethermind.ZkValidation.Plugin.Handlers;
 
 /// <summary>
 /// Simplified newPayload handler for ZK validation mode.

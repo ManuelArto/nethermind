@@ -7,11 +7,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Clients;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Models;
-using Nethermind.Merge.Plugin.ZkValidation.EthProofValidator.Verifiers;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Clients;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Models;
+using Nethermind.ZkValidation.Plugin.EthProofValidator.Verifiers;
 
-namespace Nethermind.Merge.Plugin.ZkValidation.EthProofValidator;
+namespace Nethermind.ZkValidation.Plugin.EthProofValidator;
 
 public class BlockValidator
 {
