@@ -13,6 +13,7 @@ using Nethermind.Merge.Plugin;
 using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.ZkValidation.Plugin.Handlers;
+using Nethermind.ZkValidation.Plugin.EthProofValidator;
 
 namespace Nethermind.ZkValidation.Plugin;
 
@@ -53,6 +54,7 @@ public class ZkValidationPluginModule : Module
 
         builder
             .AddSingleton<ZkValidationService>()
+            .AddSingleton<IBlockValidator, BlockValidator>()
             .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>, ZkNewPayloadHandler>()
             .AddSingleton<IForkchoiceUpdatedHandler, ZkForkchoiceUpdatedHandler>()
             ;

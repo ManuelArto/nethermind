@@ -16,10 +16,10 @@ namespace Nethermind.ZkValidation.Plugin.Handlers;
 /// <summary>
 /// Service that handles ZK proof validation with background retry support.
 /// </summary>
-public class ZkValidationService(IInvalidChainTracker invalidChainTracker, ILogManager logManager)
+public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBlockValidator blockValidator, ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
-    private readonly BlockValidator _blockValidator = new(logManager);
+    private readonly IBlockValidator _blockValidator = blockValidator;
 
     private readonly LruCache<Hash256, Block> _validBlocks = new(128, "ZkValidBlocks");
     private readonly ConcurrentHashSet<Hash256> _pendingBlocks = [];
@@ -45,9 +45,9 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, ILogM
         return result;
     }
 
-    public void TryGet(Hash256 blockHash, out Block? block)
+    public bool TryGet(Hash256 blockHash, out Block? block)
     {
-        _validBlocks.TryGet(blockHash, out block);
+        return _validBlocks.TryGet(blockHash, out block);
     }
 
     public bool IsOnInvalidChain(Hash256 blockHash, out Hash256? lastValidHash, Hash256? parentHash = null)

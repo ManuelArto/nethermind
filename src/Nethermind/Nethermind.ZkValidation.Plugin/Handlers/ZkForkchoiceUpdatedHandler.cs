@@ -26,7 +26,7 @@ public class ZkForkchoiceUpdatedHandler(ZkValidationService validationService, I
         PayloadAttributes? payloadAttributes,
         int version)
     {
-        if (payloadAttributes is not null) return ResultWrapper<ForkchoiceUpdatedV1Result>.Fail("Block production is disabled");
+        if (payloadAttributes is not null) return ResultWrapper<ForkchoiceUpdatedV1Result>.Fail("Block production is disabled for ZK Stateless mode.");
 
         Hash256 headBlockHash = forkchoiceState.HeadBlockHash;
 
@@ -39,8 +39,7 @@ public class ZkForkchoiceUpdatedHandler(ZkValidationService validationService, I
         string requestStr = forkchoiceState.ToString();
         if (_logger.IsInfo) _logger.Info($"Received {requestStr}");
 
-        validationService.TryGet(headBlockHash, out Block? block);
-        if (block is null)
+        if (!validationService.TryGet(headBlockHash, out Block? block))
         {
             if (_logger.IsInfo) _logger.Info($"Syncing Unknown ForkChoiceState head hash Request: {requestStr}.");
             return ForkchoiceUpdatedV1Result.Syncing;

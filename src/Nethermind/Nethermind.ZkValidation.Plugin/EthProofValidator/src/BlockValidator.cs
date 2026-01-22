@@ -13,7 +13,7 @@ using Nethermind.ZkValidation.Plugin.EthProofValidator.Verifiers;
 
 namespace Nethermind.ZkValidation.Plugin.EthProofValidator;
 
-public class BlockValidator
+public class BlockValidator : IBlockValidator
 {
     private readonly EthProofsApiClient _apiClient;
     private readonly VerifierRegistry _registry;
