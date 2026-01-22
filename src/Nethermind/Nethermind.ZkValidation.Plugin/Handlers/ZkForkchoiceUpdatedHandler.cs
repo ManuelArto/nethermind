@@ -9,7 +9,6 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
-using Nethermind.Merge.Plugin.InvalidChainTracker;
 
 namespace Nethermind.ZkValidation.Plugin.Handlers;
 
@@ -17,10 +16,7 @@ namespace Nethermind.ZkValidation.Plugin.Handlers;
 /// Simplified forkchoice update handler for ZK validation mode.
 /// Trusts ZK validation done in newPayload.
 /// </summary>
-public class ZkForkchoiceUpdatedHandler(
-    IBlockCacheService blockCacheService,
-    IInvalidChainTracker invalidChainTracker,
-    ILogManager logManager)
+public class ZkForkchoiceUpdatedHandler(ZkValidationService validationService, ILogManager logManager)
     : IForkchoiceUpdatedHandler
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -30,26 +26,25 @@ public class ZkForkchoiceUpdatedHandler(
         PayloadAttributes? payloadAttributes,
         int version)
     {
-        Hash256 headBlockHash = forkchoiceState.HeadBlockHash;
-        Hash256 safeBlockHash = forkchoiceState.SafeBlockHash;
-        Hash256 finalizedBlockHash = forkchoiceState.FinalizedBlockHash;
+        if (payloadAttributes is not null) return ResultWrapper<ForkchoiceUpdatedV1Result>.Fail("Block production is disabled");
 
-        if (invalidChainTracker.IsOnKnownInvalidChain(headBlockHash, out Hash256? lastValidHash))
+        Hash256 headBlockHash = forkchoiceState.HeadBlockHash;
+
+        if (validationService.IsOnInvalidChain(headBlockHash, out Hash256? lastValidHash))
         {
-            if (_logger.IsWarn) _logger.Warn($"Received Invalid {forkchoiceState} {payloadAttributes} - {headBlockHash} is known to be a part of an invalid chain.");
+            if (_logger.IsWarn) _logger.Warn($"Received Invalid {forkchoiceState} - {headBlockHash} is known to be a part of an invalid chain.");
             return ForkchoiceUpdatedV1Result.Invalid(lastValidHash);
         }
 
         string requestStr = forkchoiceState.ToString();
         if (_logger.IsInfo) _logger.Info($"Received {requestStr}");
 
-        blockCacheService.BlockCache.TryRemove(headBlockHash, out Block? block);
+        validationService.TryGet(headBlockHash, out Block? block);
         if (block is null)
         {
             if (_logger.IsInfo) _logger.Info($"Syncing Unknown ForkChoiceState head hash Request: {requestStr}.");
             return ForkchoiceUpdatedV1Result.Syncing;
         }
-
 
         if (_logger.IsInfo) _logger.Info($"Valid. {block}");
         return ForkchoiceUpdatedV1Result.Valid(null, headBlockHash);

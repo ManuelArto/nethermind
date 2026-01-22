@@ -10,7 +10,6 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
-using Nethermind.Merge.Plugin.InvalidChainTracker;
 
 namespace Nethermind.ZkValidation.Plugin.Handlers;
 
@@ -58,8 +57,11 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
                 $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
         }
 
-        if (validationService.IsOnInvalidChain(block, out Hash256? lastValidHash))
+        if (validationService.IsOnInvalidChain(block.Hash!, out Hash256? lastValidHash, block.ParentHash!))
+        {
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "block is on an invalid chain"));
             return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is on an invalid chain.");
+        }
 
         return await validationService.ValidateAsync(block) switch
         {
