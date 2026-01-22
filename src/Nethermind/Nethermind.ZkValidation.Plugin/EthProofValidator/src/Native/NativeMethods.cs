@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
@@ -16,7 +16,7 @@ internal static partial class NativeMethods
         int zk_type,
         [In] byte[] proof_ptr, // Pins automatically for the duration of call
         nuint proof_len,
-        IntPtr vk_ptr,
+        nint vk_ptr,
         nuint vk_len
     );
 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2022 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System;
@@ -13,7 +13,7 @@ public class ZkProofVerifier : IDisposable
 {
     private readonly ILogger _logger;
 
-    private IntPtr _vkPtr;
+    private nint _vkPtr;
     private nuint _vkLen;
 
     private bool _disposed;
@@ -76,9 +76,9 @@ public class ZkProofVerifier : IDisposable
 
     private void ReleaseVerificationKey()
     {
-        if (_vkPtr == IntPtr.Zero) return;
+        if (_vkPtr == nint.Zero) return;
         Marshal.FreeHGlobal(_vkPtr);
-        _vkPtr = IntPtr.Zero;
+        _vkPtr = nint.Zero;
     }
 
     ~ZkProofVerifier() => ReleaseVerificationKey();
