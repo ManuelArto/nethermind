@@ -38,23 +38,21 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
         if (block is null)
         {
             if (_logger.IsTrace) _logger.Trace($"New Block Request Invalid: {decodingResult.Error} ; {request}.");
-            return NewPayloadV1Result.Invalid(null,
-                $"Block {request} could not be parsed as a block: {decodingResult.Error}");
+            return NewPayloadV1Result.Invalid(null, $"Block {request} could not be parsed as a block: {decodingResult.Error}");
         }
 
         string requestStr = $"New Block:  {request}";
         if (_logger.IsInfo)
         {
-            _logger.Info(
-                $"Received {requestStr}      | limit {block.Header.GasLimit,13:N0} {GetGasChange(block.Number == _lastBlockNumber + 1 ? block.Header.GasLimit : _lastBlockGasLimit)}");
+            _logger.Info($"Received {requestStr}      | limit {block.Header.GasLimit,13:N0} {GetGasChange(block.Number == _lastBlockNumber + 1 ? block.Header.GasLimit : _lastBlockGasLimit)}");
             _lastBlockNumber = block.Number;
             _lastBlockGasLimit = block.Header.GasLimit;
         }
 
-        if (!ValidateBlockHash(block, out Hash256 actualHash))
+        if (!HeaderValidator.ValidateHash(block!.Header, out Hash256 actualHash))
         {
-            return NewPayloadV1Result.Invalid(null,
-                $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
+            return NewPayloadV1Result.Invalid(null, $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
         }
 
         if (validationService.IsOnInvalidChain(block.Hash!, out Hash256? lastValidHash, block.ParentHash!))
@@ -70,13 +68,6 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
             PayloadStatus.Syncing => NewPayloadV1Result.Syncing,
             _ => throw new ArgumentOutOfRangeException()
         };
-    }
-
-    private bool ValidateBlockHash(Block block, out Hash256 actualHash)
-    {
-        if (HeaderValidator.ValidateHash(block.Header, out actualHash)) return true;
-        if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
-        return false;
     }
 
     private string GetGasChange(long blockGasLimit)

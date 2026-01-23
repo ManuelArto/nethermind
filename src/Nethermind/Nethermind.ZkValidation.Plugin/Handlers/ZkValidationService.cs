@@ -19,7 +19,6 @@ namespace Nethermind.ZkValidation.Plugin.Handlers;
 public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBlockValidator blockValidator, ILogManager logManager)
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
-    private readonly IBlockValidator _blockValidator = blockValidator;
 
     private readonly LruCache<Hash256, Block> _validBlocks = new(128, "ZkValidBlocks");
     private readonly ConcurrentHashSet<Hash256> _pendingBlocks = [];
@@ -29,7 +28,7 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
 
     /// <summary>
     /// Validate a block via ZK proof. Returns immediately.
-    /// If proofs are unavailable, starts background retry and returns Pending.
+    /// If proofs are unavailable, retries in the background.
     /// </summary>
     public async Task<string> ValidateAsync(Block block)
     {
@@ -38,14 +37,18 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
             if (_logger.IsInfo) _logger.Info($"Block {block.Number} already validated.");
             return PayloadStatus.Valid;
         }
-        if (_pendingBlocks.Contains(block.Hash!)) return PayloadStatus.Syncing;
+        if (_pendingBlocks.Contains(block.Hash!))
+        {
+            if (_logger.IsInfo) _logger.Info($"Syncing... Block already known {block}.");
+            return PayloadStatus.Syncing;
+        }
 
-        string result = await _blockValidator.ValidateBlockAsync(block.Number);
+        string result = await blockValidator.ValidateBlockAsync(block.Number);
         HandleResult(block, result);
         return result;
     }
 
-    public bool TryGet(Hash256 blockHash, out Block? block)
+    public bool TryGet(Hash256 blockHash, out Block block)
     {
         return _validBlocks.TryGet(blockHash, out block);
     }
@@ -56,7 +59,7 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
         return invalidChainTracker.IsOnKnownInvalidChain(blockHash, out lastValidHash);
     }
 
-    private void HandleResult(Block block, string result, int retry = 0)
+    private void HandleResult(Block block, string result)
     {
         if (result == PayloadStatus.Valid)
         {
@@ -64,7 +67,7 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
             _pendingBlocks.TryRemove(block.Hash!);
             if (_logger.IsInfo)
             {
-                _logger.Info($"Block {block.Number} validated and cached (retry: {retry})");
+                _logger.Info($"Block {block.Number} validated and cached");
                 if (block.Number % 10 == 0) LogCacheStats();
             }
             return;
@@ -72,15 +75,14 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
 
         if (result == PayloadStatus.Invalid)
         {
+            if (_logger.IsWarn) _logger.Warn($"Block {block.Number} failed ZK validation");
             invalidChainTracker.OnInvalidBlock(block.Hash!, block.ParentHash);
             _pendingBlocks.TryRemove(block.Hash!);
-            if (_logger.IsWarn) _logger.Warn($"Block {block.Number} failed ZK validation (retry: {retry})");
             return;
         }
 
         // Syncing
         if (!_pendingBlocks.Add(block.Hash!)) return;
-        if (_logger.IsInfo) _logger.Info($"Block {block.Number} proofs unavailable. Start validation in background...");
         _ = RetryInBackgroundAsync(block);
     }
 
@@ -91,7 +93,7 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
             await Task.Delay(RetryDelayMs);
             if (_logger.IsDebug) _logger.Debug($"Retry {retry}/{MaxRetries} for block {block.Number}...");
 
-            string result = await _blockValidator.ValidateBlockAsync(block.Number);
+            string result = await blockValidator.ValidateBlockAsync(block.Number, retry);
             HandleResult(block, result);
 
             if (result != PayloadStatus.Syncing) return;
@@ -105,7 +107,7 @@ public class ZkValidationService(IInvalidChainTracker invalidChainTracker, IBloc
     private void LogCacheStats()
     {
         long sizeBytes = _validBlocks.MemorySize;
-        double sizeMb = sizeBytes / (1024.0 * 1024.0);
-        _logger.Info($"ZK Cache Stats: {_validBlocks.Count}/128 blocks | Est. RAM: {sizeMb:N2} MB");
+        double sizeKb = sizeBytes / 1024.0;
+        _logger.Info($"[ZK] Cache Stats: {_validBlocks.Count}/128 blocks | Est. RAM: {sizeKb:N2} KB");
     }
 }
