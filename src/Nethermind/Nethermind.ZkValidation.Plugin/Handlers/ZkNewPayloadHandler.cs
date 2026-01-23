@@ -10,6 +10,7 @@ using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
 using Nethermind.Merge.Plugin.Handlers;
+using Nethermind.Merge.Plugin.InvalidChainTracker;
 
 namespace Nethermind.ZkValidation.Plugin.Handlers;
 
@@ -17,7 +18,10 @@ namespace Nethermind.ZkValidation.Plugin.Handlers;
 /// Simplified newPayload handler for ZK validation mode.
 /// Delegates ZK validation to <see cref="ZkValidationService"/>.
 /// </summary>
-public sealed class ZkNewPayloadHandler(ZkValidationService validationService, ILogManager logManager)
+public sealed class ZkNewPayloadHandler(
+    ZkValidationService validationService,
+    IInvalidChainTracker invalidChainTracker,
+    ILogManager logManager)
     : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -38,29 +42,28 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
         if (block is null)
         {
             if (_logger.IsTrace) _logger.Trace($"New Block Request Invalid: {decodingResult.Error} ; {request}.");
-            return NewPayloadV1Result.Invalid(null,
-                $"Block {request} could not be parsed as a block: {decodingResult.Error}");
+            return NewPayloadV1Result.Invalid(null, $"Block {request} could not be parsed as a block: {decodingResult.Error}");
         }
 
         string requestStr = $"New Block:  {request}";
         if (_logger.IsInfo)
         {
-            _logger.Info(
-                $"Received {requestStr}      | limit {block.Header.GasLimit,13:N0} {GetGasChange(block.Number == _lastBlockNumber + 1 ? block.Header.GasLimit : _lastBlockGasLimit)}");
+            _logger.Info($"Received {requestStr}      | limit {block.Header.GasLimit,13:N0} {GetGasChange(block.Number == _lastBlockNumber + 1 ? block.Header.GasLimit : _lastBlockGasLimit)}");
             _lastBlockNumber = block.Number;
             _lastBlockGasLimit = block.Header.GasLimit;
         }
 
-        if (!ValidateBlockHash(block, out Hash256 actualHash))
+        if (!HeaderValidator.ValidateHash(block!.Header, out Hash256 actualHash))
         {
-            return NewPayloadV1Result.Invalid(null,
-                $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
+            return NewPayloadV1Result.Invalid(null, $"Invalid block hash {request.BlockHash} does not match calculated hash {actualHash}.");
         }
 
-        if (validationService.IsOnInvalidChain(block.Hash!, out Hash256? lastValidHash, block.ParentHash!))
+        invalidChainTracker.SetChildParent(block.Hash!, block.ParentHash!);
+        if (invalidChainTracker.IsOnKnownInvalidChain(block.Hash!, out Hash256? lastValidHash))
         {
-            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "block is on an invalid chain"));
-            return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is on an invalid chain.");
+            if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, $"block is a part of an invalid chain") + $". The last valid is {lastValidHash}");
+            return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is known to be a part of an invalid chain.");
         }
 
         return await validationService.ValidateAsync(block) switch
@@ -70,13 +73,6 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
             PayloadStatus.Syncing => NewPayloadV1Result.Syncing,
             _ => throw new ArgumentOutOfRangeException()
         };
-    }
-
-    private bool ValidateBlockHash(Block block, out Hash256 actualHash)
-    {
-        if (HeaderValidator.ValidateHash(block.Header, out actualHash)) return true;
-        if (_logger.IsWarn) _logger.Warn(InvalidBlockHelper.GetMessage(block, "invalid block hash"));
-        return false;
     }
 
     private string GetGasChange(long blockGasLimit)
