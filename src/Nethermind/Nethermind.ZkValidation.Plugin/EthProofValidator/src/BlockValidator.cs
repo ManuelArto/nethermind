@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -26,14 +25,14 @@ public class BlockValidator : IBlockValidator
         _logger = logManager.GetClassLogger();
     }
 
-    public async Task<string> ValidateBlockAsync(long blockId)
+    public async Task<string> ValidateBlockAsync(long blockId, int retry = 0)
     {
-        if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId}");
+        if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId} {(retry != 0 ? $"(retry: {retry})" : "")}");
 
         List<ProofMetadata>? proofs = await _apiClient.GetProofsForBlockAsync(blockId);
-        if (proofs == null || proofs.Count <= 1)
+        if (proofs == null || proofs.Count == 0)
         {
-            if (_logger.IsWarn) _logger.Warn("No proofs found.");
+            if (_logger.IsWarn) _logger.Warn($"Block #{blockId} - no proofs found.");
             return PayloadStatus.Syncing;
         }
 
@@ -51,7 +50,7 @@ public class BlockValidator : IBlockValidator
             if (result != ZkResult.Failed && result != ZkResult.Skipped) totalCount++;
         }
 
-        if (totalCount == 1) return PayloadStatus.Syncing;
+        // if (totalCount == 1) return PayloadStatus.Syncing;
 
         bool isValid = validCount * 2 >= totalCount;
         if (isValid)
@@ -71,15 +70,14 @@ public class BlockValidator : IBlockValidator
         if (verifier is null)
         {
             var zkType = proof.Cluster.ZkvmVersion.ZkVm.Type;
-            this.DisplayProofResult(ZkResult.Skipped, proof.ProofId, zkType,
-                $"No verifier for cluster {proof.ClusterId}");
+            DisplayProofResult(ZkResult.Skipped, proof.ProofId, zkType, $"No verifier for cluster {proof.ClusterId}");
             return ZkResult.Skipped;
         }
 
         var proofBytes = await _apiClient.DownloadProofAsync(proof.ProofId);
         if (proofBytes is null)
         {
-            this.DisplayProofResult(ZkResult.Skipped, proof.ProofId, $"{verifier.ZkType}", "Could not download proof");
+            DisplayProofResult(ZkResult.Skipped, proof.ProofId, $"{verifier.ZkType}", "Could not download proof");
             return ZkResult.Skipped;
         }
 
@@ -87,7 +85,7 @@ public class BlockValidator : IBlockValidator
         ZkResult result = verifier.Verify(proofBytes);
         sw.Stop();
 
-        this.DisplayProofResult(result, proof.ProofId, $"{verifier.ZkType}", $"{sw.ElapsedMilliseconds} ms");
+        DisplayProofResult(result, proof.ProofId, $"{verifier.ZkType}", $"{sw.ElapsedMilliseconds} ms");
         return result;
     }
 
