@@ -7,5 +7,5 @@ namespace Nethermind.ZkValidation.Plugin.EthProofValidator;
 
 public interface IBlockValidator
 {
-    Task<string> ValidateBlockAsync(long blockId, int retry = 0);
+    Task<string> ValidateBlockAsync(long blockId);
 }

@@ -25,16 +25,16 @@ public class BlockValidator : IBlockValidator
         _logger = logManager.GetClassLogger();
     }
 
-    public async Task<string> ValidateBlockAsync(long blockId, int retry = 0)
+    public async Task<string> ValidateBlockAsync(long blockId)
     {
-        if (_logger.IsInfo) _logger.Info($"📦 Processing Block #{blockId} {(retry != 0 ? $"(retry: {retry})" : "")}");
-
         List<ProofMetadata>? proofs = await _apiClient.GetProofsForBlockAsync(blockId);
         if (proofs == null || proofs.Count == 0)
         {
-            if (_logger.IsWarn) _logger.Warn($"Block #{blockId} - no proofs found.");
+            if (_logger.IsDebug) _logger.Debug($"Block #{blockId} - no proofs found.");
             return PayloadStatus.Syncing;
         }
+
+        if (_logger.IsDebug) _logger.Debug($"📦 Processing Block #{blockId}");
 
         IEnumerable<Task<ZkResult>> tasks = proofs.Select(async proof =>
         {
@@ -50,7 +50,7 @@ public class BlockValidator : IBlockValidator
             if (result != ZkResult.Failed && result != ZkResult.Skipped) totalCount++;
         }
 
-        // if (totalCount == 1) return PayloadStatus.Syncing;
+        if (totalCount < 1) return PayloadStatus.Syncing;
 
         bool isValid = validCount * 2 >= totalCount;
         if (isValid)
