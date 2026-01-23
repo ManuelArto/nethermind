@@ -54,7 +54,7 @@ public class ZkForkchoiceUpdatedHandler(
 
         if (blockTree.Head?.Hash != headBlockHash)
         {
-            // We need to fake TD for the block to be inserted as the head
+            // We need to inject the TTD (Terminal Total Difficulty) for the block to be inserted as the head
             block.Header.TotalDifficulty = UInt256.Parse("58750000000000000000000");
             blockTree.Insert(block, BlockTreeInsertBlockOptions.SaveHeader, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
             blockTree.UpdateMainChain(new[] { block }, true, true);
