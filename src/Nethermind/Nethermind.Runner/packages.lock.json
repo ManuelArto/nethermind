@@ -1192,6 +1192,13 @@
           "Nethermind.Init": "[1.37.0-unstable, )"
         }
       },
+      "nethermind.zkvalidation.plugin": {
+        "type": "Project",
+        "dependencies": {
+          "Nethermind.Api": "[1.37.0-unstable, )",
+          "Nethermind.Merge.Plugin": "[1.37.0-unstable, )"
+        }
+      },
       "AspNetCore.HealthChecks.UI": {
         "type": "CentralTransitive",
         "requested": "[9.0.0, )",

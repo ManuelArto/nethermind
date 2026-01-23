@@ -29,7 +29,8 @@ public class ForkchoiceStateV1(Hash256 headBlockHash, Hash256 finalizedBlockHash
     /// <remarks>Can be <see cref="Keccak.Zero"/> when transition block is not finalized yet.</remarks>
     public Hash256 FinalizedBlockHash { get; set; } = finalizedBlockHash;
 
-    public override string ToString() => $"ForkChoice: {HeadBlockHash}, Safe: {SafeBlockHash}, Finalized: {FinalizedBlockHash}";
+    public override string ToString() => $"ForkChoice: {HeadBlockHash.ToShortString()}, Safe: {SafeBlockHash.ToShortString()}, Finalized: {FinalizedBlockHash.ToShortString()}";
+    public string ToString(long headNumber) => $"ForkChoice: {headNumber} {HeadBlockHash.ToShortString()}, Safe: {SafeBlockHash.ToShortString()}, Finalized: {FinalizedBlockHash.ToShortString()}";
     public string ToString(long? headNumber, long? safeNumber, long? finalizedNumber) =>
         headNumber is null || safeNumber is null || finalizedNumber is null
             ? ToString()
