@@ -6,7 +6,6 @@ using Nethermind.Blockchain;
 using Nethermind.Consensus.Producers;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
-using Nethermind.Int256;
 using Nethermind.JsonRpc;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin.Data;
@@ -54,10 +53,9 @@ public class ZkForkchoiceUpdatedHandler(
 
         if (blockTree.Head?.Hash != headBlockHash)
         {
-            // We need to inject the TTD (Terminal Total Difficulty) for the block to be inserted as the head
-            block.Header.TotalDifficulty = UInt256.Parse("58750000000000000000000");
             blockTree.Insert(block, BlockTreeInsertBlockOptions.SaveHeader, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
             blockTree.UpdateMainChain(new[] { block }, true, true);
+            // blockTree.UpdateHeadBlock(headBlockHash);
             if (_logger.IsInfo) _logger.Info($"Synced Chain Head to {block.ToString(Block.Format.Short)}");
         }
 

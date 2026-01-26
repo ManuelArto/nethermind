@@ -3,6 +3,7 @@
 
 using System;
 using System.Threading.Tasks;
+using Nethermind.Consensus;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -17,7 +18,7 @@ namespace Nethermind.ZkValidation.Plugin.Handlers;
 /// Simplified newPayload handler for ZK validation mode.
 /// Delegates ZK validation to <see cref="ZkValidationService"/>.
 /// </summary>
-public sealed class ZkNewPayloadHandler(ZkValidationService validationService, ILogManager logManager)
+public sealed class ZkNewPayloadHandler(ZkValidationService validationService, IPoSSwitcher poSSwitcher, ILogManager logManager)
     : IAsyncHandler<ExecutionPayload, PayloadStatusV1>
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
@@ -33,7 +34,7 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
     /// <returns></returns>
     public async Task<ResultWrapper<PayloadStatusV1>> HandleAsync(ExecutionPayload request)
     {
-        BlockDecodingResult decodingResult = request.TryGetBlock();
+        BlockDecodingResult decodingResult = request.TryGetBlock(poSSwitcher.FinalTotalDifficulty);
         Block? block = decodingResult.Block;
         if (block is null)
         {
@@ -61,6 +62,7 @@ public sealed class ZkNewPayloadHandler(ZkValidationService validationService, I
             return NewPayloadV1Result.Invalid(lastValidHash, $"Block {request} is on an invalid chain.");
         }
 
+        // validationService will keep track of the block
         return await validationService.ValidateAsync(block) switch
         {
             PayloadStatus.Valid => NewPayloadV1Result.Valid(block.Hash),
