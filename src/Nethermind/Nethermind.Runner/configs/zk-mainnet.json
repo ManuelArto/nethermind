@@ -33,6 +33,7 @@
     "Server": "wss://ethstats.net/api"
   },
   "Metrics": {
+    "Enabled": true,
     "NodeName": "ZkMainnet"
   },
   "Merge": {

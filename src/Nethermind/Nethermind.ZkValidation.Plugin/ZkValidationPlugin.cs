@@ -8,6 +8,7 @@ using Nethermind.Api;
 using Nethermind.Api.Extensions;
 using Nethermind.Consensus;
 using Nethermind.Core;
+using Nethermind.Facade.Eth;
 using Nethermind.Logging;
 using Nethermind.Merge.Plugin;
 using Nethermind.Merge.Plugin.Data;
@@ -57,6 +58,7 @@ public class ZkValidationPluginModule : Module
             .AddSingleton<IBlockValidator, BlockValidator>()
             .AddSingleton<IAsyncHandler<ExecutionPayload, PayloadStatusV1>, ZkNewPayloadHandler>()
             .AddSingleton<IForkchoiceUpdatedHandler, ZkForkchoiceUpdatedHandler>()
+            .AddSingleton<IEthSyncingInfo, ZkEthSyncingInfo>()
             ;
     }
 }
