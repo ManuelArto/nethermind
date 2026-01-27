@@ -42,7 +42,8 @@ public class ZkForkchoiceUpdatedHandler(
             return Task.FromResult(ForkchoiceUpdatedV1Result.Invalid(lastValidHash));
         }
 
-        if (!validationService.TryGet(headBlockHash, out Block block))
+        Block? block = blockTree.FindBlock(headBlockHash, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
+        if (block is null)
         {
             if (_logger.IsInfo) _logger.Info($"Syncing Unknown ForkChoiceState head hash Request: {forkchoiceState}.");
             return Task.FromResult(ForkchoiceUpdatedV1Result.Syncing);
@@ -53,7 +54,6 @@ public class ZkForkchoiceUpdatedHandler(
 
         if (blockTree.Head?.Hash != headBlockHash)
         {
-            blockTree.Insert(block, BlockTreeInsertBlockOptions.SaveHeader, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
             blockTree.UpdateMainChain(new[] { block }, true, true);
             // blockTree.UpdateHeadBlock(headBlockHash);
             if (_logger.IsInfo) _logger.Info($"Synced Chain Head to {block.ToString(Block.Format.Short)}");

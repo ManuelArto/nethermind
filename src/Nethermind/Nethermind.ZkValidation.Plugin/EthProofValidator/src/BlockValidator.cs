@@ -34,8 +34,6 @@ public class BlockValidator : IBlockValidator
             return PayloadStatus.Syncing;
         }
 
-        if (_logger.IsDebug) _logger.Debug($"📦 Processing Block #{blockId}");
-
         IEnumerable<Task<ZkResult>> tasks = proofs.Select(async proof =>
         {
             ZkProofVerifier? verifier = _registry.GetVerifier(proof.ClusterId) ?? await _registry.TryAddVerifierAsync(proof);
@@ -55,7 +53,7 @@ public class BlockValidator : IBlockValidator
         bool isValid = validCount * 2 >= totalCount;
         if (isValid)
         {
-            if (_logger.IsInfo) _logger.Info($"✅ BLOCK #{blockId} ACCEPTED ({validCount}/{totalCount})");
+            if (_logger.IsDebug) _logger.Debug($"✅ BLOCK #{blockId} ACCEPTED ({validCount}/{totalCount})");
         }
         else
         {
