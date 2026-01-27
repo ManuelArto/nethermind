@@ -49,17 +49,50 @@ public class ZkForkchoiceUpdatedHandler(
             return Task.FromResult(ForkchoiceUpdatedV1Result.Syncing);
         }
 
-        string requestStr = forkchoiceState.ToString(block.Number);
+        Hash256 safeBlockHash = forkchoiceState.SafeBlockHash;
+        Hash256 finalizedBlockHash = forkchoiceState.FinalizedBlockHash;
+
+        BlockHeader? safeBlockHeader = ValidateBlockHash(ref safeBlockHash, out string? safeBlockErrorMsg);
+        BlockHeader? finalizedHeader = ValidateBlockHash(ref finalizedBlockHash, out string? finalizationErrorMsg);
+
+        string requestStr = forkchoiceState.ToString(block.Number, safeBlockHeader?.Number, finalizedHeader?.Number);
         if (_logger.IsInfo) _logger.Info($"Received {requestStr}");
+
+        if (finalizationErrorMsg is not null)
+        {
+            if (_logger.IsWarn) _logger.Warn($"Finalized {finalizationErrorMsg}.");
+            return ForkchoiceUpdatedV1Result.Syncing;
+        }
+
+        if (safeBlockErrorMsg is not null)
+        {
+            if (_logger.IsWarn) _logger.Warn($"Safe {safeBlockErrorMsg}.");
+            return ForkchoiceUpdatedV1Result.Syncing;
+        }
 
         if (blockTree.Head?.Hash != headBlockHash)
         {
             blockTree.UpdateMainChain(new[] { block }, true, true);
-            // blockTree.UpdateHeadBlock(headBlockHash);
             if (_logger.IsInfo) _logger.Info($"Synced Chain Head to {block.ToString(Block.Format.Short)}");
         }
 
         blockTree.ForkChoiceUpdated(forkchoiceState.FinalizedBlockHash, forkchoiceState.SafeBlockHash);
         return Task.FromResult(ForkchoiceUpdatedV1Result.Valid(null, headBlockHash));
+    }
+
+    protected virtual BlockHeader? ValidateBlockHash(ref Hash256 blockHash, out string? errorMessage, bool skipZeroHash = true)
+    {
+        errorMessage = null;
+        if (skipZeroHash && blockHash == Keccak.Zero)
+        {
+            return null;
+        }
+
+        BlockHeader? blockHeader = blockTree.FindHeader(blockHash, BlockTreeLookupOptions.DoNotCreateLevelIfMissing);
+        if (blockHeader is null)
+        {
+            errorMessage = $"Block {blockHash} not found.";
+        }
+        return blockHeader;
     }
 }
