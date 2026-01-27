@@ -1,5 +1,6 @@
 {
   "profiles": {
+
     "Base Mainnet": {
       "commandName": "Project",
       "commandLineArgs": "-c base-mainnet --data-dir .data",
@@ -59,6 +60,13 @@
     "Mainnet": {
       "commandName": "Project",
       "commandLineArgs": "-c mainnet --data-dir .data",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "Zk-Mainnet": {
+      "commandName": "Project",
+      "commandLineArgs": "-c zk-mainnet",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

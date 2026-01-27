@@ -16,6 +16,16 @@ COPY Directory.*.props .
 COPY global.json .
 COPY nuget.config .
 
+
+# install cargo rust
+RUN apt-get update && apt-get install -y curl build-essential && \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    /root/.cargo/bin/rustup default stable && \
+    /root/.cargo/bin/rustup component add rustfmt clippy && \
+    ln -s /root/.cargo/bin/cargo /usr/local/bin/cargo && \
+    ln -s /root/.cargo/bin/rustc /usr/local/bin/rustc
+
+
 RUN arch=$([ "$TARGETARCH" = "amd64" ] && echo "x64" || echo "$TARGETARCH") && \
   cd src/Nethermind/Nethermind.Runner && \
   dotnet restore --locked-mode && \

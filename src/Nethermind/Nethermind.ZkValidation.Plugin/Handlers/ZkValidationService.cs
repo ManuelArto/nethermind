@@ -55,7 +55,7 @@ public class ZkValidationService(
                 blockTree.Insert(block, BlockTreeInsertBlockOptions.SaveHeader, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
                 if (_logger.IsInfo)
                 {
-                    _logger.Info($"Valid. Block {block.Number} validated (retries {retry})");
+                    _logger.Info($"Valid. Block {block.Number} (retries {retry})");
                     if (block.Number % 10 == 0) LogCacheStats();
                 }
 
