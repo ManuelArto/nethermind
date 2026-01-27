@@ -5,18 +5,18 @@
     "GenesisHash": "0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3",
     "LogFileName": "zk_mainnet.log",
     "DiagnosticMode": "MemDb",
-    "MemoryHint": 1024000000,
+    "MemoryHint": 2048000000,
     "DiscoveryEnabled": false,
-    "PeerManagerEnabled": false
+    "PeerManagerEnabled": false,
+    "ProcessingEnabled": false
   },
   "JsonRpc": {
     "Enabled": true,
     "Timeout": 20000,
     "Host": "127.0.0.1",
     "Port": 8545,
-    "AdditionalRpcUrls": [
-      "http://localhost:8551|http;ws|net;eth;subscribe;engine;web3;client"
-    ]
+    "EngineEnabledModules": ["Net", "Eth", "Subscribe", "Web3", "Engine"],
+    "EnginePort": 8551
   },
   "Sync": {
     "SynchronizationEnabled": false,
