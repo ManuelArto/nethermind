@@ -1,56 +1,103 @@
-// SPDX-FileCopyrightText: 2024 Demerzel Solutions Limited
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
 
 using System.Threading.Tasks;
 using FluentAssertions;
+using Nethermind.Blockchain;
 using Nethermind.Core;
 using Nethermind.Core.Test.Builders;
 using Nethermind.Logging;
-using Nethermind.JsonRpc;
 using Nethermind.Merge.Plugin.Data;
-using Nethermind.Merge.Plugin.Handlers;
 using Nethermind.Merge.Plugin.InvalidChainTracker;
+using Nethermind.ZkValidation.Plugin.EthProofValidator;
 using Nethermind.ZkValidation.Plugin.Handlers;
 using NSubstitute;
 using NUnit.Framework;
 
 namespace Nethermind.ZkValidation.Plugin.Test;
 
+/// <summary>
+/// Integration-style tests that verify the ZK validation service behavior.
+/// Tests the validation logic directly without going through the handler
+/// (which adds block hash validation complexity).
+/// </summary>
 [TestFixture]
 public class ZkValidationTests
 {
-    private ZkNewPayloadHandler _zkHandler = null!;
     private ZkValidationService _validationService = null!;
-    private IBlockCacheService _blockCacheService = null!;
+    private IBlockValidator _blockValidator = null!;
+    private IBlockTree _blockTree = null!;
     private IInvalidChainTracker _invalidChainTracker = null!;
 
     [SetUp]
     public void SetUp()
     {
-        _blockCacheService = Substitute.For<IBlockCacheService>();
+        _blockValidator = Substitute.For<IBlockValidator>();
+        _blockTree = Substitute.For<IBlockTree>();
         _invalidChainTracker = Substitute.For<IInvalidChainTracker>();
+        
         _validationService = new ZkValidationService(
-            _blockCacheService,
+            _blockValidator,
+            _blockTree,
             _invalidChainTracker,
             new TestLogManager(LogLevel.Info));
-        _zkHandler = new ZkNewPayloadHandler(_validationService, new TestLogManager(LogLevel.Info));
     }
 
     [Test]
-    public async Task HandleAsync_ShouldReturnSyncing_WhenNoProofsAvailable()
+    public async Task ValidateAsync_ShouldReturnSyncing_WhenNoProofsAvailable()
     {
         // Arrange
         const long blockNumber = 24234077;
         Block block = Build.A.Block
             .WithNumber(blockNumber)
             .TestObject;
-
-        var payload = ExecutionPayload.Create(block);
+        
+        // Simulate no proofs available (validator returns Syncing)
+        _blockTree.FindBlock(block.Hash!, Arg.Any<BlockTreeLookupOptions>()).Returns((Block?)null);
+        _blockValidator.ValidateBlockAsync(block.Number - 1).Returns(PayloadStatus.Syncing);
 
         // Act
-        ResultWrapper<PayloadStatusV1> result = await _zkHandler.HandleAsync(payload);
+        string result = await _validationService.ValidateAsync(block);
 
         // Assert
-        result.Data.Status.Should().Be(PayloadStatus.Syncing);
+        result.Should().Be(PayloadStatus.Syncing);
+    }
+
+    [Test]
+    public async Task ValidateAsync_ShouldReturnValid_WhenProofsAreValid()
+    {
+        // Arrange
+        Block block = Build.A.Block
+            .WithNumber(100)
+            .TestObject;
+        
+        _blockTree.FindBlock(block.Hash!, Arg.Any<BlockTreeLookupOptions>()).Returns((Block?)null);
+        _blockValidator.ValidateBlockAsync(block.Number - 1).Returns(PayloadStatus.Valid);
+
+        // Act
+        string result = await _validationService.ValidateAsync(block);
+
+        // Assert
+        result.Should().Be(PayloadStatus.Valid);
+        _blockTree.Received(1).Insert(block, Arg.Any<BlockTreeInsertBlockOptions>(), Arg.Any<BlockTreeInsertHeaderOptions>());
+    }
+
+    [Test]
+    public async Task ValidateAsync_ShouldReturnInvalid_WhenProofsAreInvalid()
+    {
+        // Arrange
+        Block block = Build.A.Block
+            .WithNumber(100)
+            .TestObject;
+        
+        _blockTree.FindBlock(block.Hash!, Arg.Any<BlockTreeLookupOptions>()).Returns((Block?)null);
+        _blockValidator.ValidateBlockAsync(block.Number - 1).Returns(PayloadStatus.Invalid);
+
+        // Act
+        string result = await _validationService.ValidateAsync(block);
+
+        // Assert
+        result.Should().Be(PayloadStatus.Invalid);
+        _invalidChainTracker.Received(1).OnInvalidBlock(block.Hash!, block.ParentHash);
     }
 }
