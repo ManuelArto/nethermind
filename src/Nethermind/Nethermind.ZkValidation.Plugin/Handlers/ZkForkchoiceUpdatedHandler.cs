@@ -56,15 +56,12 @@ public class ZkForkchoiceUpdatedHandler(
 
         if (finalizationErrorMsg is not null)
         {
-            if (_logger.IsWarn) _logger.Warn($"Finalized {finalizationErrorMsg}.");
-            return ForkchoiceUpdatedV1Result.Syncing;
+            // We don't have the block in our tree, but the CL says it's finalized.
+            // In a stateless validator, we can trust this.
+            if (_logger.IsDebug) _logger.Debug($"Finalized block {finalizedBlockHash} not in local tree yet - trusting CL");
         }
-
         if (safeBlockErrorMsg is not null)
-        {
-            if (_logger.IsWarn) _logger.Warn($"Safe {safeBlockErrorMsg}.");
-            return ForkchoiceUpdatedV1Result.Syncing;
-        }
+            if (_logger.IsDebug) _logger.Debug($"Safe block {safeBlockHash} not in local tree yet - trusting CL");
 
         if (blockTree.Head?.Hash != headBlockHash)
         {
