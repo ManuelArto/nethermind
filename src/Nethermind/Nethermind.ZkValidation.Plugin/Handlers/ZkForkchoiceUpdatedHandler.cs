@@ -30,10 +30,6 @@ public class ZkForkchoiceUpdatedHandler(
         PayloadAttributes? payloadAttributes,
         int version)
     {
-        // Attester-Only: Explicitly reject block production requests
-        if (payloadAttributes is not null)
-            return ResultWrapper<ForkchoiceUpdatedV1Result>.Fail("Block production is disabled for ZK Stateless mode.");
-
         Hash256 headBlockHash = forkchoiceState.HeadBlockHash;
 
         if (validationService.IsOnInvalidChain(headBlockHash, out Hash256? lastValidHash))

@@ -23,10 +23,8 @@ public class ZkValidationService(
 {
     private readonly ILogger _logger = logManager.GetClassLogger();
 
-    // private readonly LruCache<Hash256, Block> _validBlocks = new(128, "ZkValidBlocks");
-
     private const int RetryDelayMs = 1000;
-    private const int MaxRetries = 8;
+    private const int MaxRetries = 10;
 
     /// <summary>
     /// Validate a block via ZK proof. Returns immediately.
@@ -47,17 +45,13 @@ public class ZkValidationService(
         {
             if (retry > 0) await Task.Delay(RetryDelayMs);
 
-            // TODO: Validate one block before to avoid optimistic sync (for now)
-            string result = await blockValidator.ValidateBlockAsync(block.Number - 1);
+            // PAUSED (TODO: Validate one block before to avoid optimistic sync (for now))
+            string result = await blockValidator.ValidateBlockAsync(block.Number);
 
             if (result == PayloadStatus.Valid)
             {
                 blockTree.Insert(block, BlockTreeInsertBlockOptions.SaveHeader, BlockTreeInsertHeaderOptions.BeaconBlockInsert);
-                if (_logger.IsInfo)
-                {
-                    _logger.Info($"Valid. Block {block.Number} (retries {retry})");
-                    if (block.Number % 10 == 0) LogCacheStats();
-                }
+                if (_logger.IsInfo) _logger.Info($"Valid. Block {block.Number} (retries {retry})");
 
                 return PayloadStatus.Valid;
             }
@@ -76,22 +70,9 @@ public class ZkValidationService(
         return PayloadStatus.Syncing;
     }
 
-    // public bool TryGet(Hash256 blockHash, out Block block)
-    // {
-    //     return _validBlocks.TryGet(blockHash, out block);
-    // }
-
     public bool IsOnInvalidChain(Hash256 blockHash, out Hash256? lastValidHash, Hash256? parentHash = null)
     {
         if (parentHash is not null) invalidChainTracker.SetChildParent(blockHash, parentHash);
         return invalidChainTracker.IsOnKnownInvalidChain(blockHash, out lastValidHash);
-    }
-
-    private void LogCacheStats()
-    {
-        //long sizeBytes = _validBlocks.MemorySize;
-        //double sizeKb = sizeBytes / 1024.0;
-        //if (_logger.IsWarn)
-        //    _logger.Warn($"[ZK] Cache Stats: {_validBlocks.Count}/128 blocks | Est. RAM: {sizeKb:N2} KB");
     }
 }
