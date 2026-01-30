@@ -99,7 +99,7 @@ public class BlockValidator : IBlockValidator
         };
 
         string message = $"   Proof {proofId} - {zkType,-15} : {status} ({info})";
-        if (_logger.IsWarn) _logger.Warn(message);
+        if (_logger.IsInfo) _logger.Info(message);
     }
 
 }
