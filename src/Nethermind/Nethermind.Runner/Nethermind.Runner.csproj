@@ -131,6 +131,7 @@
       <NativeLibs Include="../Nethermind.ZkValidation.Plugin/EthProofValidator/native-zk-verifier/target/release/libnative_zk_verifier.dylib" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
     </ItemGroup>
     <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(OutDir)" />
+    <Copy SourceFiles="@(NativeLibs)" DestinationFolder="$(PublishDir)" />
   </Target>
 
 </Project>
