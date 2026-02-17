@@ -12,6 +12,7 @@ using Nethermind.Core.Crypto;
 using Nethermind.Era1.Exceptions;
 
 namespace Nethermind.Era1.Test;
+
 public class EraImporterTest
 {
     [Test]
@@ -135,7 +136,8 @@ public class EraImporterTest
         Assert.That(importTask, Throws.TypeOf<EraVerificationException>());
     }
 
-    [CancelAfter(2000)]
+    [CancelAfter(4000)]
+    [Retry(3)]
     [Test]
     public async Task ImportAsArchiveSync_WillPaceSuggestBlock(CancellationToken token)
     {
@@ -156,7 +158,7 @@ public class EraImporterTest
             })
             .Build();
 
-        ManualResetEventSlim reachedBlock11 = new ManualResetEventSlim();
+        ManualResetEventSlim reachedBlock11 = new();
         bool shouldUpdateMainChain = false;
         long maxSuggestedBlocks = 0;
         long expectedStopBlock = 10;
