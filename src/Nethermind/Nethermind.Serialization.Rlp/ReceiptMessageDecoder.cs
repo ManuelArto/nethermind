@@ -18,6 +18,9 @@ namespace Nethermind.Serialization.Rlp
         public ReceiptMessageDecoder(bool skipStateAndStatus = false, bool skipBloom = false)
         {
             _skipStateAndStatus = skipStateAndStatus;
+            // TODO: why is this needed?
+            // => EraE format omits Bloom field in archive and we need to compute filter locally,
+            // which is handled in an appropriate class later.
             _skipBloom = skipBloom;
         }
         protected override TxReceipt DecodeInternal(RlpStream rlpStream, RlpBehaviors rlpBehaviors = RlpBehaviors.None)
@@ -61,7 +64,7 @@ namespace Nethermind.Serialization.Rlp
                 txReceipt.PostTransactionState = firstItem.Length == 0 ? null : new Hash256(firstItem);
                 txReceipt.GasUsedTotal = (long)ctx.DecodeUBigInt();
             }
-            
+
             if (!_skipBloom) txReceipt.Bloom = ctx.DecodeBloom();
 
             int lastCheck = ctx.ReadSequenceLength() + ctx.Position;

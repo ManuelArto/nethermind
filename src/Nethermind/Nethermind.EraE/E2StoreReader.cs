@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
 // SPDX-License-Identifier: LGPL-3.0-only
-namespace Nethermind.EraE;
 
+using Nethermind.EraE.Exceptions;
+
+namespace Nethermind.EraE;
 
 public struct BlockOffset(
     long headerPosition,
@@ -84,7 +86,7 @@ public class E2StoreReader(string filePath) : Era1.E2StoreReader(filePath)
             + IndexSectionCount
         );
 
-        // Verify that its a block index
+        // Verify that it's a block index
         _ = ReadEntry(_fileLength - _indexLength - HeaderSize, EntryTypes.BlockIndex);
 
         _startBlock = (long?)ReadUInt64(_fileLength - _indexLength);

@@ -1,4 +1,8 @@
+// SPDX-FileCopyrightText: 2025 Demerzel Solutions Limited
+// SPDX-License-Identifier: LGPL-3.0-only
+
 using System.Security.Cryptography;
+using Nethermind.Config;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Specs;
@@ -6,27 +10,24 @@ using Nethermind.Era1.Exceptions;
 
 namespace Nethermind.EraE;
 
-public class Validator {
-    private readonly IHistoricalSummariesProvider? _historicalSummariesProvider;
-    private readonly ISet<ValueHash256>? _trustedAccumulators;
-    private readonly ISet<ValueHash256>? _trustedHistoricalRoots;
-    private readonly SlotTime _slotTime;
+public class Validator(
+    ISpecProvider specProvider,
+    IBlocksConfig blocksConfig,
+    ISet<ValueHash256>? trustedAccumulators,
+    ISet<ValueHash256>? trustedHistoricalRoots,
+    IHistoricalSummariesProvider? historicalSummariesProvider)
+{
+    private readonly SlotTime _slotTime = new(
+        specProvider.BeaconChainGenesisTimestamp!.Value * 1000,
+        new Timestamper(),
+        TimeSpan.FromSeconds(blocksConfig.SecondsPerSlot),
+        TimeSpan.FromSeconds(0));
 
     private const int SLOTS_PER_HISTORICAL_ROOT = 8192;
     private const int GEN_INDEX_EXECUTION_BLOCK_PROOF_BELLATRIX = 3228;
     private const int GEN_INDEX_EXECUTION_BLOCK_PROOF_DENEB = 6444;
 
-    public Validator(ISpecProvider specProvider, ISet<ValueHash256>? trustedAccumulators, ISet<ValueHash256>? trustedHistoricalRoots, IHistoricalSummariesProvider? historicalSummariesProvider) {
-        _slotTime = new(
-            specProvider.BeaconChainGenesisTimestamp!.Value * 1000,
-            new Timestamper(),
-            // TODO: get slot length from spec or config
-            TimeSpan.FromSeconds(12),
-            TimeSpan.FromSeconds(0));
-        _trustedAccumulators = trustedAccumulators;
-        _trustedHistoricalRoots = trustedHistoricalRoots;
-        _historicalSummariesProvider = historicalSummariesProvider;
-    }
+    // TODO: get slot length from spec or config
 
     private bool IsDeneb(ulong blockTimestamp) {
         ulong slotNumber = _slotTime.GetSlot(blockTimestamp);
@@ -38,27 +39,27 @@ public class Validator {
     }
 
     private bool TrustedAccumulatorsProvided() {
-        return _trustedAccumulators is not null && _trustedAccumulators.Count > 0;
+        return trustedAccumulators is not null && trustedAccumulators.Count > 0;
     }
 
     private ValueHash256? GetAccumulatorForEpoch(long epochIdx) {
-        if (_trustedAccumulators is not null && _trustedAccumulators.Count > epochIdx){
-            return _trustedAccumulators.ElementAt((int)epochIdx);
+        if (trustedAccumulators is not null && trustedAccumulators.Count > epochIdx){
+            return trustedAccumulators.ElementAt((int)epochIdx);
         }
         return null;
     }
 
     private ValueHash256? GetHistoricalRoot(long slotNumber) {
         long historicalRootIndex = slotNumber / SLOTS_PER_HISTORICAL_ROOT;
-        if (_trustedHistoricalRoots is not null && _trustedHistoricalRoots.Count > historicalRootIndex){
-            return _trustedHistoricalRoots.ElementAt((int)historicalRootIndex);
+        if (trustedHistoricalRoots is not null && trustedHistoricalRoots.Count > historicalRootIndex){
+            return trustedHistoricalRoots.ElementAt((int)historicalRootIndex);
         }
         return null;
     }
 
      private async Task<HistoricalSummary?> GetHistoricalSummary(long slotNumber) {
         long historicalSummaryIndex = slotNumber / SLOTS_PER_HISTORICAL_ROOT;
-        Task<HistoricalSummary?>? task = _historicalSummariesProvider?.GetHistoricalSummary((int)historicalSummaryIndex);
+        Task<HistoricalSummary?>? task = historicalSummariesProvider?.GetHistoricalSummary((int)historicalSummaryIndex);
         if (task is null) return null;
 
         HistoricalSummary? summary = await task;

@@ -9,18 +9,20 @@ using Nethermind.Consensus.Validators;
 using Nethermind.Core.Crypto;
 using Nethermind.Core.Collections;
 using System.Collections.Concurrent;
+using Nethermind.Config;
 using Nethermind.Core.Extensions;
 using Nethermind.Era1.Exceptions;
+using Nethermind.Serialization.Rlp.ProofDecoder;
 using Nethermind.State.Proofs;
 
 namespace Nethermind.EraE;
 
 /// <summary>
-/// Main reader for erae file. Uses E2StoreReader which internally mmap the whole file. This reader is thread safe
+/// Main reader for erae file. Uses E2StoreReader which internally map the whole file. This reader is thread safe
 /// allowing multiple thread to read from it at the same time.
 /// </summary>
 
-// set skipBloom to true, because EraE format omits that field in archive and we need to compute filter locally,
+// set skipBloom to true, because EraE format omits that field in archive, and we need to compute filter locally,
 // which is handled in an appropriate class later.
 public class EraReader(E2StoreReader e2) : Era1.EraReader(e2, new ReceiptMessageDecoder(skipBloom: true))
 {
@@ -66,11 +68,11 @@ public class EraReader(E2StoreReader e2) : Era1.EraReader(e2, new ReceiptMessage
     /// </summary>
     /// <param name="cancellation"></param>
     /// <returns>Returns <see cref="true"/> if the expected accumulator matches, and <see cref="false"/> if there is no match.</returns>
-    public new async Task<bool> VerifyContent(ISpecProvider specProvider, IBlockValidator blockValidator, int verifyConcurrency = 0, CancellationToken cancellation = default)
+    public async Task<bool> VerifyContent(ISpecProvider specProvider, IBlocksConfig blocksConfig, IBlockValidator blockValidator, int verifyConcurrency = 0, CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(specProvider);
 
-        Validator blockProofValidator = new(specProvider, _trustedAccumulators, _trustedHistoricalRoots, _historicalSummariesProvider);
+        Validator blockProofValidator = new(specProvider, blocksConfig, _trustedAccumulators, _trustedHistoricalRoots, _historicalSummariesProvider);
         SlotTime slotTime = new(
             specProvider.BeaconChainGenesisTimestamp!.Value * 1000,
             new Timestamper(),
@@ -162,8 +164,10 @@ public class EraReader(E2StoreReader e2) : Era1.EraReader(e2, new ReceiptMessage
             return hash;
         }
         catch (Era1.EraException) {
+            // TODO: should we do something here?
             return null; // accumulator is not available for this era
         }
+        // TODO: Catch specific exception
         catch (Exception e) {
             throw new EraVerificationException($"Failed to read accumulator from erae file: {e.Message}");
         }

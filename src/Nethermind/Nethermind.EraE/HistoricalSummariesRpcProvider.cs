@@ -114,6 +114,7 @@ public class HistoricalSummariesRpcProvider : IHistoricalSummariesProvider
         // Navigate to data.historical_summaries
         if (root.TryGetProperty("data", out JsonElement data))
         {
+            // TODO: may need other parts of response to check SSZ proof right?
             if (data.TryGetProperty("historical_summaries", out JsonElement historicalSummaries))
             {
                 if (historicalSummaries.ValueKind == JsonValueKind.Array)

@@ -4,6 +4,7 @@
 using System.Collections.Concurrent;
 using System.IO.Abstractions;
 using System.Runtime.CompilerServices;
+using Nethermind.Config;
 using Nethermind.Consensus.Validators;
 using Nethermind.Core;
 using Nethermind.Core.Crypto;
@@ -17,6 +18,7 @@ public class EraStore : Era1.IEraStore
     private readonly char[] _eraSeparator = ['-'];
 
     protected readonly ISpecProvider _specProvider;
+    protected readonly IBlocksConfig _blocksConfig;
     protected readonly IBlockValidator _blockValidator;
 
     private readonly ISet<ValueHash256>? _trustedAccumulators;
@@ -80,6 +82,7 @@ public class EraStore : Era1.IEraStore
         ISpecProvider specProvider,
         IBlockValidator blockValidator,
         IFileSystem fileSystem,
+        IBlocksConfig blocksConfig,
         string networkName,
         int maxEraSize,
         ISet<ValueHash256>? trustedAcccumulators,
@@ -91,6 +94,7 @@ public class EraStore : Era1.IEraStore
     )
     {
         _specProvider = specProvider;
+        _blocksConfig = blocksConfig;
         _blockValidator = blockValidator;
         _trustedAccumulators = trustedAcccumulators;
         _trustedHistoricalRoots = trustedHistoricalRoots;
@@ -159,7 +163,7 @@ public class EraStore : Era1.IEraStore
 
             Task accumulatorTask = Task.Run(async () =>
             {
-                await reader.VerifyContent(_specProvider, _blockValidator, _verifyConcurrency, cancellation);
+                await reader.VerifyContent(_specProvider, _blocksConfig, _blockValidator, _verifyConcurrency, cancellation);
             });
 
             await Task.WhenAll(checksumTask, accumulatorTask);
