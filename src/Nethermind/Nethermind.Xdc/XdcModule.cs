@@ -25,6 +25,8 @@ using Nethermind.Evm.TransactionProcessing;
 using Nethermind.Xdc.TxPool;
 using Nethermind.Api.Steps;
 using Nethermind.Synchronization;
+using Nethermind.Synchronization.FastSync;
+using Nethermind.Synchronization.ParallelSync;
 
 namespace Nethermind.Xdc;
 
@@ -63,7 +65,11 @@ public class XdcModule : Module
             // sealer
             .AddSingleton<ISealer, XdcSealer>()
 
+            // signing transactions cache
+            .AddSingleton<ISigningTxCache, SigningTxCache>()
+
             // penalty handler
+            .AddSingleton<IPenaltyHandler, PenaltyHandler>()
 
             // reward handler
             .AddSingleton<IRewardCalculator, XdcRewardCalculator>()
@@ -76,20 +82,24 @@ public class XdcModule : Module
             .AddSingleton<IUnclesValidator, MustBeEmptyUnclesValidator>()
 
             // managers
+            .AddSingleton<IMasternodesCalculator, MasternodesCalculator>()
             .AddSingleton<IVotesManager, VotesManager>()
             .AddSingleton<IQuorumCertificateManager, QuorumCertificateManager>()
             .AddSingleton<ITimeoutCertificateManager, TimeoutCertificateManager>()
             .AddSingleton<IEpochSwitchManager, EpochSwitchManager>()
             .AddSingleton<IXdcConsensusContext, XdcConsensusContext>()
             .AddDatabase(SnapshotDbName)
-            .AddSingleton<ISnapshotManager, IDb, IBlockTree, IPenaltyHandler, IMasternodeVotingContract, ISpecProvider>(CreateSnapshotManager)
+            .AddSingleton<ISnapshotManager, IDb, IBlockTree, IMasternodeVotingContract, ISpecProvider>(CreateSnapshotManager)
             .AddSingleton<ISignTransactionManager, ISigner, ITxPool, ILogManager>(CreateSignTransactionManager)
             .AddSingleton<IPenaltyHandler, PenaltyHandler>()
             .AddSingleton<ITimeoutTimer, TimeoutTimer>()
             .AddSingleton<ISyncInfoManager, SyncInfoManager>()
 
-            // beacon sync strategy
+            // sync
             .AddSingleton<IBeaconSyncStrategy, XdcBeaconSyncStrategy>()
+            .AddSingleton<IPeerAllocationStrategyFactory<StateSyncBatch>, XdcStateSyncAllocationStrategyFactory>()
+            .AddSingleton<XdcStateSyncSnapshotManager>()
+            .AddSingleton<IStateSyncPivot, XdcStateSyncPivot>()
 
             .AddSingleton<IBlockProducerTxSourceFactory, XdcTxPoolTxSourceFactory>()
 
@@ -98,9 +108,9 @@ public class XdcModule : Module
             ;
     }
 
-    private ISnapshotManager CreateSnapshotManager([KeyFilter(SnapshotDbName)] IDb db, IBlockTree blockTree, IPenaltyHandler penaltyHandler, IMasternodeVotingContract votingContract, ISpecProvider specProvider)
+    private ISnapshotManager CreateSnapshotManager([KeyFilter(SnapshotDbName)] IDb db, IBlockTree blockTree, IMasternodeVotingContract votingContract, ISpecProvider specProvider)
     {
-        return new SnapshotManager(db, blockTree, penaltyHandler, votingContract, specProvider);
+        return new SnapshotManager(db, blockTree, votingContract, specProvider);
     }
     private ISignTransactionManager CreateSignTransactionManager(ISigner signer, ITxPool txPool, ILogManager logManager)
     {
