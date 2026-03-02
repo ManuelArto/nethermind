@@ -16,16 +16,15 @@ public class EthProofsApiClient
 {
     private readonly ILogger _logger;
     private readonly HttpClient _httpClient;
-    private const string BaseUrl = "https://ethproofs.org";
 
-    public EthProofsApiClient(ILogManager logManager)
+    public EthProofsApiClient(IZkValidationConfig zkConfig, ILogManager logManager)
     {
         var handler = new SocketsHttpHandler
         {
             PooledConnectionLifetime = TimeSpan.FromMinutes(2),
             MaxConnectionsPerServer = 20
         };
-        _httpClient = new HttpClient(handler) { BaseAddress = new Uri(BaseUrl) };
+        _httpClient = new HttpClient(handler) { BaseAddress = new Uri(zkConfig.ProverUrl ?? "https://ethproofs.org") };
         _logger = logManager.GetClassLogger();
     }
 

@@ -9,4 +9,7 @@ public interface IZkValidationConfig : IConfig
 {
     [ConfigItem(Description = "Whether to enable ZK Validation mode (Stateless Client).", DefaultValue = "false")]
     bool Enabled { get; set; }
+
+    [ConfigItem(Description = "The URL of the ZK prover service.", DefaultValue = "https://ethproofs.org")]
+    public string? ProverUrl { get; set; }
 }

@@ -18,9 +18,9 @@ public class BlockValidator : IBlockValidator
     private readonly VerifierRegistry _registry;
     private readonly ILogger _logger;
 
-    public BlockValidator(ILogManager logManager)
+    public BlockValidator(IZkValidationConfig zkConfig, ILogManager logManager)
     {
-        _apiClient = new EthProofsApiClient(logManager);
+        _apiClient = new EthProofsApiClient(zkConfig, logManager);
         _registry = new VerifierRegistry(_apiClient, logManager);
         _logger = logManager.GetClassLogger();
     }

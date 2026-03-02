@@ -6,4 +6,5 @@ namespace Nethermind.ZkValidation.Plugin;
 public class ZkValidationConfig : IZkValidationConfig
 {
     public bool Enabled { get; set; }
+    public string? ProverUrl { get; set; }
 }
