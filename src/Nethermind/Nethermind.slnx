@@ -20,7 +20,6 @@
     <Project Path="Nethermind.Merge.Plugin/Nethermind.Merge.Plugin.csproj" />
   </Folder>
   <Folder Name="/Plugins/ZkValidation/">
-    <Project Path="Nethermind.ZkValidation.Plugin.Test/Nethermind.ZkValidation.Plugin.Test.csproj" />
     <Project Path="Nethermind.ZkValidation.Plugin/Nethermind.ZkValidation.Plugin.csproj" />
   </Folder>
   <Folder Name="/Plugins/Signer/">
